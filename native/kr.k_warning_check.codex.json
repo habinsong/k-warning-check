@@ -1,0 +1,7 @@
+{
+  "name": "kr.k_warning_check.codex",
+  "description": "K-워닝체크 Codex Native Host",
+  "path": "/Users/songhabin/k-warning-check/native/codex-native-host",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg/"]
+}
