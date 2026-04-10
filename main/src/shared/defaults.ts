@@ -1,0 +1,45 @@
+import type { ProviderState } from '@/shared/types'
+
+export const DEFAULT_PROVIDER_STATE: ProviderState = {
+  uiLocale: 'ko',
+  onboardingCompleted: false,
+  preferredProvider: 'codex',
+  webSearchEnabled: true,
+  theme: 'system',
+  autoUseConfiguredProviders: true,
+  remoteExplanationEnabled: false,
+  remoteOcrEnabled: false,
+  gemini: {
+    model: 'gemini-3.1-pro-preview',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
+    apiKeyRetention: '7d',
+    hasSecret: false,
+    storageBackend: null,
+    expiresAt: null,
+    lastValidationAt: null,
+  },
+  groq: {
+    model: 'groq/compound',
+    endpoint: 'https://api.groq.com/openai/v1',
+    apiKeyRetention: '7d',
+    enabledTools: [
+      'web_search',
+      'code_interpreter',
+      'visit_website',
+      'browser_automation',
+      'wolfram_alpha',
+    ],
+    hasSecret: false,
+    storageBackend: null,
+    expiresAt: null,
+    lastValidationAt: null,
+  },
+  codex: {
+    bridgeUrl: 'http://127.0.0.1:4317',
+    bridgeToken: '',
+    workspaceRoot: '',
+    loginCommand: 'codex login',
+    model: 'gpt-5.4-mini',
+    reasoningEffort: 'low',
+  },
+}

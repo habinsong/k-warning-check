@@ -8,9 +8,16 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.npm-cache
 dist
 dist-ssr
 *.local
+main/.desktop-renderer
+windows-app/.app-build
+mac-app/.app-build
+mac-app/release
+windows-app/release
+.claude/
 
 # Editor directories and files
 .vscode/*

@@ -1,0 +1,7 @@
+{
+  "name": "kr.k_warning_check.codex",
+  "description": "K-워닝체크 Codex Native Host",
+  "path": "__INSTALLED_BY_NPM_RUN_NATIVE_INSTALL__",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg/"]
+}

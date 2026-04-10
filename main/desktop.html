@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>K-워닝체크 데스크톱</title>
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('kwc.theme') || 'system';
+          if (t === 'system') t = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+          document.documentElement.dataset.theme = t;
+        } catch(e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/desktop/renderer/main.tsx"></script>
+  </body>
+</html>

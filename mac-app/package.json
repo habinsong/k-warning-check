@@ -1,0 +1,41 @@
+{
+  "name": "@k-warning-check/mac-app",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "kr.kwarningcheck.desktop.mac",
+    "afterSign": "mac-app/scripts/after-sign.mjs",
+    "productName": "K-WarningCheck Desktop",
+    "electronVersion": "37.2.6",
+    "directories": {
+      "app": ".app-build",
+      "output": "release"
+    },
+    "files": [
+      "bin/**/*",
+      "electron/**/*",
+      "electron-shared/**/*",
+      "renderer/**/*",
+      "scripts/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "bin/**"
+    ],
+    "electronLanguages": ["ko", "en-US"],
+    "artifactName": "K-WarningCheck-Desktop-macOS-${version}.${ext}",
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    }
+  }
+}

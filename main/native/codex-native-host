@@ -1,0 +1,4 @@
+#!/bin/sh
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+export PATH="$SCRIPT_DIR:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+exec "$(command -v node)" "$SCRIPT_DIR/codex-native-host.mjs"
