@@ -94,13 +94,19 @@ npm run dev:extension
 # 개발 모드
 npm run dev:tauri
 
-# 프로덕션 빌드
+# 프로덕션 빌드 (Tauri 기본)
 npm run build:tauri
+
+# macOS 빌드 → mac-app/
+npm run build:mac
+
+# Windows 크로스 컴파일 → windows-app/ (macOS에서 cargo-xwin 필요)
+npm run build:windows
 ```
 
 빌드 산출물:
-- macOS: `tauri-app/target/release/bundle/dmg/K-WarningCheck Desktop_*.dmg`
-- Windows: `tauri-app/target/release/bundle/nsis/K-WarningCheck Desktop_*.exe`
+- macOS: `mac-app/K-WarningCheck Desktop.app` + `.dmg`
+- Windows: `windows-app/k-warning-check-desktop.exe`
 
 ### 네이티브 호스트 설치 (Codex 브릿지)
 

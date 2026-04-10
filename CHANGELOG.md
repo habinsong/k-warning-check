@@ -10,6 +10,9 @@ Electron에서 Tauri v2로 전면 전환하여 데스크톱 앱 번들 사이즈
 
 #### 추가
 
+- **Windows 크로스 컴파일 지원** — `cargo-xwin` + LLVM 기반 macOS에서 Windows EXE 빌드
+- **플랫폼별 빌드 스크립트** — `npm run build:mac` (mac-app/), `npm run build:windows` (windows-app/)
+- **macOS ad-hoc 서명** — 빌드 시 격리 속성 제거 + 자동 ad-hoc 코드 서명
 - **Tauri v2 Rust 백엔드** — 1,600줄 이상의 Rust 코드로 Electron Node.js 백엔드 전체 이식
   - 히스토리 CRUD (`history.rs`)
   - 설정 상태 관리 (`provider_state.rs`)

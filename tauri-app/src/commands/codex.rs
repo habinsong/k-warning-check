@@ -117,9 +117,10 @@ async fn kill_bridge_on_port() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for pid_str in stdout.lines() {
                 let pid_str = pid_str.trim();
-                if let Ok(pid) = pid_str.parse::<i32>() {
+                if let Ok(_pid) = pid_str.parse::<i32>() {
+                    #[cfg(unix)]
                     unsafe {
-                        libc::kill(pid, libc::SIGTERM);
+                        libc::kill(_pid, libc::SIGTERM);
                     }
                 }
             }

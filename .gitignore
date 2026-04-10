@@ -13,10 +13,8 @@ dist
 dist-ssr
 *.local
 main/.desktop-renderer
-windows-app/.app-build
-mac-app/.app-build
-mac-app/release
-windows-app/release
+mac-app/
+windows-app/
 .claude/
 
 # Editor directories and files

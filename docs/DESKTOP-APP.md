@@ -259,21 +259,24 @@ npm run dev:tauri
 ### 프로덕션 빌드
 
 ```bash
+# Tauri 기본 빌드 (현재 OS)
 npm run build:tauri
-```
 
-내부 동작:
-1. `vite build` — 프론트엔드를 `main/.desktop-renderer/`에 빌드
-2. `cargo tauri build` — Rust 릴리스 빌드 + 플랫폼별 번들링
+# macOS 빌드 → mac-app/ (ad-hoc 서명 포함)
+npm run build:mac
+
+# Windows 크로스 컴파일 → windows-app/ (macOS에서 cargo-xwin 필요)
+npm run build:windows
+```
 
 ### 산출물
 
-| 플랫폼 | 경로 | 포맷 |
-|--------|------|------|
-| macOS | `target/release/bundle/dmg/*.dmg` | DMG 디스크 이미지 |
-| macOS | `target/release/bundle/macos/*.app` | 앱 번들 |
-| Windows | `target/release/bundle/nsis/*.exe` | NSIS 인스톨러 |
-| Linux | `target/release/bundle/appimage/*.AppImage` | AppImage |
+| 플랫폼 | 명령 | 산출 경로 | 포맷 |
+|--------|------|----------|------|
+| macOS | `build:mac` | `mac-app/*.app` + `*.dmg` | 앱 번들 + DMG |
+| Windows | `build:windows` | `windows-app/*.exe` | 포터블 EXE |
+
+macOS 빌드 시 `xattr -cr` (격리 속성 제거) + `codesign --force --deep --sign -` (ad-hoc 서명)이 자동 수행됩니다.
 
 ---
 

@@ -10,6 +10,8 @@
     "build:extension": "npm run build:extension -w main && npm run native:install -w main",
     "dev:tauri": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cd tauri-app && cargo tauri dev\"",
     "build:tauri": "npm run build:desktop-renderer -w main && cd tauri-app && cargo tauri build",
+    "build:mac": "npm run build:tauri && rm -rf mac-app && mkdir -p mac-app && cp -R tauri-app/target/release/bundle/macos/*.app mac-app/ && cp tauri-app/target/release/bundle/dmg/*.dmg mac-app/ && xattr -cr mac-app/*.app && codesign --force --deep --sign - mac-app/*.app && xattr -cr mac-app/*.dmg",
+    "build:windows": "npm run build:desktop-renderer -w main && rm -rf windows-app && mkdir -p windows-app && cd tauri-app && cargo xwin build --release --target x86_64-pc-windows-msvc && cd .. && cp tauri-app/target/x86_64-pc-windows-msvc/release/k-warning-check-desktop.exe windows-app/ && cp tauri-app/icons/icon.ico windows-app/",
     "native:install": "npm run native:install -w main",
     "lint": "npm run lint -w main",
     "test": "npm run test -w main"

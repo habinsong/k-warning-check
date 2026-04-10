@@ -52,13 +52,16 @@ pub async fn kwc_system_capture_screen_region(
         }
     }
 
-    // Get primary monitor info
-    let monitors = xcap::Monitor::all().map_err(|e| format!("모니터 정보 가져오기 실패: {e}"))?;
-    let monitor = monitors.first().ok_or("사용 가능한 디스플레이가 없습니다.")?;
-    let mon_x = monitor.x().map_err(|e| format!("모니터 좌표 읽기 실패: {e}"))? as f64;
-    let mon_y = monitor.y().map_err(|e| format!("모니터 좌표 읽기 실패: {e}"))? as f64;
-    let mon_width = monitor.width().map_err(|e| format!("모니터 크기 읽기 실패: {e}"))? as f64;
-    let mon_height = monitor.height().map_err(|e| format!("모니터 크기 읽기 실패: {e}"))? as f64;
+    // Get primary monitor info (extract values before any .await since Monitor is !Send)
+    let (mon_x, mon_y, mon_width, mon_height) = {
+        let monitors = xcap::Monitor::all().map_err(|e| format!("모니터 정보 가져오기 실패: {e}"))?;
+        let monitor = monitors.first().ok_or("사용 가능한 디스플레이가 없습니다.")?;
+        let x = monitor.x().map_err(|e| format!("모니터 좌표 읽기 실패: {e}"))? as f64;
+        let y = monitor.y().map_err(|e| format!("모니터 좌표 읽기 실패: {e}"))? as f64;
+        let w = monitor.width().map_err(|e| format!("모니터 크기 읽기 실패: {e}"))? as f64;
+        let h = monitor.height().map_err(|e| format!("모니터 크기 읽기 실패: {e}"))? as f64;
+        (x, y, w, h)
+    };
 
     // Create overlay window
     let overlay = WebviewWindowBuilder::new(
