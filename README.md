@@ -5,8 +5,7 @@
 ## 현재 구조
 
 - `main`: 공용 소스와 Chrome 확장프로그램, 데스크톱 공용 React/서비스 코드
-- `windows-app`: Windows용 Electron 셸 소스
-- `mac-app`: macOS용 Electron 셸 소스
+- `tauri-app`: 데스크톱 앱 (Tauri v2 + Rust 백엔드)
 - `dist`: Chrome 개발자모드에서 직접 불러오는 확장 최종 산출물
 
 ## 실행
@@ -24,24 +23,17 @@ npm run build:extension
 
 빌드 결과는 `dist`에 생성됩니다. Chrome 확장 프로그램 페이지에서 `압축해제된 확장 프로그램을 로드`로 `dist`를 선택하면 됩니다.
 
-Windows용 데스크톱 렌더러 + 셸 스테이징 빌드:
+데스크톱 앱 빌드 (Tauri):
 
 ```bash
-npm run build:windows
-```
-
-macOS용 데스크톱 렌더러 + 셸 스테이징 빌드:
-
-```bash
-npm run build:mac
+npm run build:tauri
 ```
 
 개발 모드:
 
 ```bash
 npm run dev:extension
-npm run dev:windows
-npm run dev:mac
+npm run dev:tauri
 ```
 
 ## 공용 계층
@@ -49,7 +41,7 @@ npm run dev:mac
 - 공용 분석 엔진: `main/src/modules`, `main/src/shared`
 - 공용 분석 서비스 인터페이스: `main/src/core`
 - 데스크톱 API 계약: `main/src/platform/desktopApi.ts`
-- Electron 공용 런타임: `main/electron-shared`
+- Tauri Rust 백엔드: `tauri-app/src`
 
 ## 참고
 

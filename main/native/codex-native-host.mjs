@@ -10,7 +10,7 @@ import {
   startBridge,
   startLogin,
   validateSecureStoreSecret,
-} from '../electron-shared/codex-services.mjs'
+} from './codex-services.mjs'
 
 function readNativeMessage() {
   return new Promise((resolve, reject) => {

@@ -3,30 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "workspaces": [
-    "main",
-    "windows-app",
-    "mac-app"
+    "main"
   ],
   "scripts": {
     "dev:extension": "npm run native:install -w main && npm run dev:extension -w main",
     "build:extension": "npm run build:extension -w main && npm run native:install -w main",
     "dev:tauri": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cd tauri-app && cargo tauri dev\"",
     "build:tauri": "npm run build:desktop-renderer -w main && cd tauri-app && cargo tauri build",
-    "dev:windows": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cross-env KWC_DESKTOP_RENDERER_URL=http://127.0.0.1:4173 electron windows-app/electron/main.cjs\"",
-    "stage:windows": "npm run build:desktop-renderer -w main && node windows-app/scripts/prepare-build.mjs",
-    "build:windows": "npm run stage:windows && electron-builder --projectDir windows-app --win portable --x64",
-    "dev:mac": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cross-env KWC_DESKTOP_RENDERER_URL=http://127.0.0.1:4173 electron mac-app/electron/main.cjs\"",
-    "stage:mac": "npm run build:desktop-renderer -w main && node mac-app/scripts/prepare-build.mjs",
-    "build:mac": "npm run stage:mac && electron-builder --projectDir mac-app --mac dir",
     "native:install": "npm run native:install -w main",
     "lint": "npm run lint -w main",
     "test": "npm run test -w main"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "cross-env": "^10.1.0",
-    "electron": "^37.2.6",
-    "electron-builder": "^26.8.1",
     "wait-on": "^9.0.1"
   }
 }

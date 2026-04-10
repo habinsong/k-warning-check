@@ -49,11 +49,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": []
-    },
-    "clipboard-manager": {
-      "all": true
+      "open": true
     }
   }
 }
