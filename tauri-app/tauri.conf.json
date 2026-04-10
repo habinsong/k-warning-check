@@ -1,0 +1,58 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/schemas/refs/heads/master/tauri/tauri.conf.schema.json",
+  "productName": "K-WarningCheck Desktop",
+  "identifier": "kr.kwarningcheck.desktop",
+  "version": "0.1.0",
+  "build": {
+    "frontendDist": "../main/.desktop-renderer",
+    "devUrl": "http://127.0.0.1:4173",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "K-워닝체크 Desktop",
+        "width": 1360,
+        "height": 920,
+        "minWidth": 880,
+        "minHeight": 620,
+        "url": "desktop.html",
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com https://api.groq.com http://127.0.0.1:4317; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "languages": ["Korean", "English"]
+      }
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true,
+      "scope": []
+    },
+    "clipboard-manager": {
+      "all": true
+    }
+  }
+}

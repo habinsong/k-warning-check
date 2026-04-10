@@ -1,0 +1,24 @@
+{
+  "identifier": "default",
+  "description": "K-WarningCheck Desktop 기본 권한",
+  "windows": ["main", "capture-overlay"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-create",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-center",
+    "core:webview:default",
+    "shell:default",
+    "shell:allow-open",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read-text",
+    "opener:default"
+  ]
+}
