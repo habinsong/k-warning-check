@@ -11,7 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = ["devtools", "macos-private-api"] }
 tauri-plugin-shell = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
@@ -25,8 +25,16 @@ sha2 = "0.10"
 rand = "0.8"
 base64 = "0.22"
 image = "0.25"
-xcap = "0.0.14"
+xcap = "0.9"
 dirs = "6"
 hostname = "0.4"
 thiserror = "2"
 chrono = "0.4"
+hex = "0.4"
+whoami = "1"
+url = "2"
+open = "5"
+sys-locale = "0.3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

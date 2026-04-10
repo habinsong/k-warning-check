@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import '@/index.css'
 import { DesktopApp } from '@/desktop/renderer/DesktopApp'
 
+if ('__TAURI_INTERNALS__' in window) {
+  await import('@/desktop/renderer/tauri-bridge')
+}
+
 const rootElement = document.getElementById('root')
 
 if (!rootElement) {

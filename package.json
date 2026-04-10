@@ -10,6 +10,8 @@
   "scripts": {
     "dev:extension": "npm run native:install -w main && npm run dev:extension -w main",
     "build:extension": "npm run build:extension -w main && npm run native:install -w main",
+    "dev:tauri": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cd tauri-app && cargo tauri dev\"",
+    "build:tauri": "npm run build:desktop-renderer -w main && cd tauri-app && cargo tauri build",
     "dev:windows": "concurrently -k \"npm run dev:desktop-renderer -w main\" \"wait-on tcp:4173 && cross-env KWC_DESKTOP_RENDERER_URL=http://127.0.0.1:4173 electron windows-app/electron/main.cjs\"",
     "stage:windows": "npm run build:desktop-renderer -w main && node windows-app/scripts/prepare-build.mjs",
     "build:windows": "npm run stage:windows && electron-builder --projectDir windows-app --win portable --x64",
