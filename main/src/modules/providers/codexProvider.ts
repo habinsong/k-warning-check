@@ -1,5 +1,6 @@
 import { BaseProviderAdapter } from '@/modules/providers/adapter'
 import { restartCodexBridge } from '@/platform/codexBridgeControl'
+import { getCachedRuntimeCapabilities } from '@/shared/runtimeCapabilities'
 
 interface CodexBridgeResponse {
   ok: boolean
@@ -15,7 +16,10 @@ export class CodexProvider extends BaseProviderAdapter {
   kind = 'codex' as const
 
   isConfigured() {
-    return Boolean(this.state.codex.bridgeUrl.trim() && this.state.codex.bridgeToken.trim())
+    return (
+      getCachedRuntimeCapabilities().supportsCodex &&
+      Boolean(this.state.codex.bridgeUrl.trim() && this.state.codex.bridgeToken.trim())
+    )
   }
 
   async summarize(prompt: string) {

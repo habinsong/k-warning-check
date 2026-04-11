@@ -18,6 +18,10 @@ import { getProviderState, saveProviderState } from '@/modules/storage/providerS
 import { setCodexBridgeRestartHandler } from '@/platform/codexBridgeControl'
 import { getActiveTab } from '@/shared/chrome'
 import { STORAGE_KEYS } from '@/shared/constants'
+import {
+  getChromeRuntimeCapabilities,
+  getCodexUnsupportedMessage,
+} from '@/shared/runtimeCapabilities'
 import type {
   AnalysisInput,
   PopupStatus,
@@ -193,16 +197,16 @@ async function sendNativeCodexMessage<T>(message: { type: string; [key: string]:
     if (rawMessage.includes('Specified native messaging host not found')) {
       throw new Error(
         locale === 'en'
-          ? 'The Codex local host is not installed. Run `npm run native:install` in this workspace, then reload the Chrome extension.'
-          : 'Codex 로컬 호스트가 설치되지 않았습니다. 이 작업 폴더에서 `npm run native:install`을 실행한 뒤 Chrome 확장을 새로고침하세요.',
+          ? 'The local host is not installed. Run `npm run native:install` in this workspace, then reload the Chrome extension.'
+          : '로컬 호스트가 설치되지 않았습니다. 이 작업 폴더에서 `npm run native:install`을 실행한 뒤 Chrome 확장을 새로고침하세요.',
       )
     }
 
     if (rawMessage.includes('Access to native messaging host is forbidden')) {
       throw new Error(
         locale === 'en'
-          ? 'The installed Codex local host does not allow this extension. Re-run `npm run native:install` and reload the extension.'
-          : '설치된 Codex 로컬 호스트가 현재 확장을 허용하지 않습니다. `npm run native:install`을 다시 실행한 뒤 확장을 새로고침하세요.',
+          ? 'The installed local host does not allow this extension. Re-run `npm run native:install` and reload the extension.'
+          : '설치된 로컬 호스트가 현재 확장을 허용하지 않습니다. `npm run native:install`을 다시 실행한 뒤 확장을 새로고침하세요.',
       )
     }
 
@@ -210,15 +214,38 @@ async function sendNativeCodexMessage<T>(message: { type: string; [key: string]:
   }
 
   if (!response?.ok) {
-    throw new Error(response?.error ?? 'Codex 네이티브 호스트 호출에 실패했습니다.')
+    throw new Error(response?.error ?? '로컬 네이티브 호스트 호출에 실패했습니다.')
   }
 
   return response.data as T
 }
 
 setCodexBridgeRestartHandler(async () => {
+  const runtimeCapabilities = await getChromeRuntimeCapabilities()
+  if (!runtimeCapabilities.supportsCodex) {
+    return
+  }
   await sendNativeCodexMessage({ type: 'start-codex-bridge', force: true })
 })
+
+async function ensureCodexSupported() {
+  const runtimeCapabilities = await getChromeRuntimeCapabilities()
+
+  if (runtimeCapabilities.supportsCodex) {
+    return runtimeCapabilities
+  }
+
+  let locale: 'ko' | 'en' = 'ko'
+
+  try {
+    const providerState = await getProviderState()
+    locale = providerState.uiLocale === 'en' ? 'en' : 'ko'
+  } catch {
+    locale = 'ko'
+  }
+
+  throw new Error(getCodexUnsupportedMessage(locale))
+}
 
 async function loadGroqModelsFromSecureStore() {
   const providerState = await getProviderState()
@@ -364,6 +391,8 @@ async function onMessage(message: RuntimeMessage) {
       return getProviderState()
     case 'save-provider-state':
       return saveProviderState(message.state)
+    case 'get-runtime-capabilities':
+      return getChromeRuntimeCapabilities()
     case 'save-provider-secret': {
       const currentState = await getProviderState()
       const providerStatus = await setProviderSecret(message.provider, message.secret, message.retention)
@@ -392,10 +421,13 @@ async function onMessage(message: RuntimeMessage) {
     case 'get-popup-status':
       return getPopupStatus()
     case 'get-codex-status':
+      await ensureCodexSupported()
       return sendNativeCodexMessage({ type: 'codex-status' })
     case 'start-codex-login':
+      await ensureCodexSupported()
       return sendNativeCodexMessage({ type: 'start-codex-login' })
     case 'start-codex-bridge':
+      await ensureCodexSupported()
       return sendNativeCodexMessage({ type: 'start-codex-bridge', force: true })
     default:
       return null

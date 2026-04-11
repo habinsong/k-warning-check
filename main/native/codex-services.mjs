@@ -7,7 +7,6 @@ import { createConnection } from 'node:net'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
-import keytar from 'keytar'
 
 const execFileAsync = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -19,8 +18,11 @@ const WORKSPACE_ROOT = realpathSync(
     : path.resolve(REPO_ROOT, '..'),
 )
 const SECURE_STORE_SERVICE_NAME = 'K-WarningCheck'
-const HOME_DIR = process.env.HOME ?? ''
-const KWC_HOME_DIR = path.join(HOME_DIR || os.homedir(), '.k-warning-check')
+const HOME_DIR = process.env.HOME ?? os.homedir()
+const USER_PROFILE_DIR = process.env.USERPROFILE ?? HOME_DIR
+const LOCAL_APP_DATA_DIR = process.env.LOCALAPPDATA ?? ''
+const APP_DATA_DIR = process.env.APPDATA ?? ''
+const KWC_HOME_DIR = path.join(HOME_DIR, '.k-warning-check')
 const BRIDGE_STATE_PATH = path.join(KWC_HOME_DIR, 'codex-bridge.json')
 const SECURE_STORE_METADATA_PATH = path.join(KWC_HOME_DIR, 'secure-store-metadata.json')
 const SECURE_STORE_CACHE_PATH = path.join(KWC_HOME_DIR, 'secure-store-cache.json')
@@ -31,15 +33,32 @@ const BRIDGE_URL = `http://${BRIDGE_HOST}:${BRIDGE_PORT}`
 const CHROME_EXTENSION_ORIGIN = 'chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg'
 const CODEX_PATH_CANDIDATES = [
   process.env.CODEX_BIN,
+  process.platform === 'win32' ? path.join(APP_DATA_DIR, 'npm', 'codex.cmd') : '',
+  process.platform === 'win32' ? path.join(APP_DATA_DIR, 'npm', 'codex') : '',
+  process.platform === 'win32' ? path.join(LOCAL_APP_DATA_DIR, 'Programs', 'Codex', 'codex.exe') : '',
+  process.platform === 'win32' ? path.join(LOCAL_APP_DATA_DIR, 'Microsoft', 'WindowsApps', 'codex.exe') : '',
+  process.platform === 'win32' ? path.join(USER_PROFILE_DIR, 'AppData', 'Roaming', 'npm', 'codex.cmd') : '',
+  process.platform === 'win32' ? path.join(USER_PROFILE_DIR, 'AppData', 'Roaming', 'npm', 'codex') : '',
+  process.platform === 'win32' ? path.join(HOME_DIR, 'AppData', 'Roaming', 'npm', 'codex.cmd') : '',
+  process.platform === 'win32' ? path.join(HOME_DIR, 'AppData', 'Roaming', 'npm', 'codex') : '',
   path.join(HOME_DIR, '.npm-global', 'bin', 'codex'),
+  path.join(HOME_DIR, '.npm-global', 'bin', 'codex.cmd'),
   '/usr/local/bin/codex',
   '/opt/homebrew/bin/codex',
 ].filter(Boolean)
 const CODEX_BIN = CODEX_PATH_CANDIDATES.find((candidate) => existsSync(candidate)) ?? 'codex'
+const NODE_BIN = process.execPath || 'node'
 const TOOL_ENV = {
   ...process.env,
   PATH: [
     path.dirname(process.execPath),
+    process.platform === 'win32' ? path.join(LOCAL_APP_DATA_DIR, 'Programs', 'nodejs') : '',
+    process.platform === 'win32' ? path.join(LOCAL_APP_DATA_DIR, 'Microsoft', 'WindowsApps') : '',
+    process.platform === 'win32' ? path.join(APP_DATA_DIR, 'npm') : '',
+    process.platform === 'win32' ? path.join(USER_PROFILE_DIR, 'AppData', 'Roaming', 'npm') : '',
+    process.platform === 'win32' ? path.join(HOME_DIR, 'AppData', 'Roaming', 'npm') : '',
+    process.platform === 'win32' ? path.join(process.env.ProgramFiles ?? '', 'nodejs') : '',
+    process.platform === 'win32' ? path.join(process.env['ProgramFiles(x86)'] ?? '', 'nodejs') : '',
     path.join(HOME_DIR, '.npm-global', 'bin'),
     '/usr/local/bin',
     '/opt/homebrew/bin',
@@ -50,9 +69,43 @@ const TOOL_ENV = {
     process.env.PATH ?? '',
   ]
     .filter(Boolean)
-    .join(':'),
+    .join(path.delimiter),
 }
 const SECRET_PROVIDERS = new Set(['gemini', 'groq'])
+let keytarModulePromise
+
+function isWindowsCommandScript(program) {
+  const normalized = String(program ?? '').trim().toLowerCase()
+  return normalized.endsWith('.cmd') || normalized.endsWith('.bat')
+}
+
+function execToolAsync(program, args, options = {}) {
+  if (process.platform === 'win32' && isWindowsCommandScript(program)) {
+    return execFileAsync(process.env.ComSpec || 'cmd.exe', ['/C', program, ...args], {
+      windowsHide: true,
+      ...options,
+    })
+  }
+
+  return execFileAsync(program, args, {
+    windowsHide: true,
+    ...options,
+  })
+}
+
+function spawnTool(program, args, options = {}) {
+  if (process.platform === 'win32' && isWindowsCommandScript(program)) {
+    return spawn(process.env.ComSpec || 'cmd.exe', ['/C', program, ...args], {
+      windowsHide: true,
+      ...options,
+    })
+  }
+
+  return spawn(program, args, {
+    windowsHide: true,
+    ...options,
+  })
+}
 
 function isFileSystemRoot(candidatePath) {
   if (!candidatePath) {
@@ -270,8 +323,24 @@ function secureStoreError(code, message) {
   return error
 }
 
+async function getKeytar() {
+  if (!keytarModulePromise) {
+    keytarModulePromise = import('keytar')
+      .then((module) => module.default ?? module)
+      .catch((error) => {
+        throw secureStoreError(
+          'SECURE_STORE_UNAVAILABLE',
+          error instanceof Error ? error.message : 'keytar 모듈을 불러오지 못했습니다.',
+        )
+      })
+  }
+
+  return keytarModulePromise
+}
+
 async function safeDeleteCredential(account) {
   try {
+    const keytar = await getKeytar()
     await keytar.deletePassword(SECURE_STORE_SERVICE_NAME, account)
   } catch {
     // 삭제 실패는 무시합니다.
@@ -427,6 +496,7 @@ async function getSecureStoreStatus() {
   const backend = getSecureStorageBackend()
 
   try {
+    await getKeytar()
     const [gemini, groq] = await Promise.all([
       getProviderSecureStatus('gemini'),
       getProviderSecureStatus('groq'),
@@ -473,6 +543,7 @@ async function setSecureStoreSecret(provider, secret, retention) {
   }
 
   try {
+    const keytar = await getKeytar()
     await keytar.setPassword(SECURE_STORE_SERVICE_NAME, getSecretAccount(provider), secret)
     const metadata = await writeSecretMetadata(provider, retention)
     await writeCachedSecret(provider, secret)
@@ -618,11 +689,23 @@ async function killBridgeOnPort(port = 4317) {
 }
 
 async function codexStatus() {
-  const { stdout, stderr } = await execFileAsync(CODEX_BIN, ['login', 'status'], {
+  if (process.platform === 'win32') {
+    throw new Error('Windows에서는 Codex를 지원하지 않습니다.')
+  }
+
+  const { stdout, stderr } = await execToolAsync(CODEX_BIN, ['login', 'status'], {
     env: TOOL_ENV,
     maxBuffer: 1024 * 1024,
   })
   return (stdout || stderr).trim()
+}
+
+function isLoggedInStatus(statusText) {
+  return /\blogged in\b/i.test(String(statusText || ''))
+}
+
+function extractAuthUrl(output) {
+  return String(output || '').match(/https:\/\/auth\.openai\.com\/\S+/u)?.[0] ?? ''
 }
 
 function isBridgeOpen(port = 4317, host = '127.0.0.1') {
@@ -650,6 +733,10 @@ async function getBridgeConnectionInfo(preferredRoot) {
 }
 
 async function startBridge(force = false) {
+  if (process.platform === 'win32') {
+    throw new Error('Windows에서는 Codex를 지원하지 않습니다.')
+  }
+
   if (force) {
     await killBridgeOnPort()
   }
@@ -663,10 +750,11 @@ async function startBridge(force = false) {
   }
 
   const bridgeWorkspaceRoot = resolveWorkspaceRoot()
-  const child = spawn('node', [await resolveBridgeScriptExecutable()], {
+  const child = spawn(NODE_BIN, [await resolveBridgeScriptExecutable()], {
     cwd: resolveExecutionCwd(),
     detached: true,
     stdio: 'ignore',
+    windowsHide: true,
     env: {
       ...TOOL_ENV,
       CODEX_BRIDGE_HOST: BRIDGE_HOST,
@@ -690,9 +778,24 @@ async function startBridge(force = false) {
 }
 
 async function startLogin() {
+  if (process.platform === 'win32') {
+    throw new Error('Windows에서는 Codex를 지원하지 않습니다.')
+  }
+
+  const currentStatus = await codexStatus().catch(() => '')
+  if (isLoggedInStatus(currentStatus)) {
+    return {
+      output: currentStatus,
+      authUrl: '',
+      logPath: '',
+      alreadyLoggedIn: true,
+      message: 'Codex는 이미 로그인되어 있습니다.',
+    }
+  }
+
   const logPath = path.join(os.tmpdir(), `kwc-codex-oauth-${Date.now()}.log`)
   const outputHandle = await open(logPath, 'a')
-  const child = spawn(CODEX_BIN, ['login'], {
+  const child = spawnTool(CODEX_BIN, ['login', '--device-auth'], {
     cwd: resolveExecutionCwd(),
     detached: true,
     stdio: ['ignore', outputHandle.fd, outputHandle.fd],
@@ -708,7 +811,7 @@ async function startLogin() {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 250))
     output = await readFile(logPath, 'utf8').catch(() => '')
-    authUrl = output.match(/https:\/\/auth\.openai\.com\/oauth\/authorize\S+/u)?.[0] ?? ''
+    authUrl = extractAuthUrl(output)
 
     if (authUrl) {
       break

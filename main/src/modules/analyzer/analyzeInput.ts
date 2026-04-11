@@ -1,5 +1,6 @@
 import { analyzeText } from '@/modules/analyzer/analyzeText'
 import { GRADE_ORDER } from '@/shared/constants'
+import { getCachedRuntimeCapabilities } from '@/shared/runtimeCapabilities'
 import type {
   AnalysisInput,
   AnalysisResult,
@@ -211,8 +212,11 @@ export async function analyzeInput(
 
   if (!sourceText && input.imageDataUrl) {
     if (configuredProviders.length === 0) {
+      const supportsCodex = getCachedRuntimeCapabilities().supportsCodex
       throw new Error(
-        '이미지 분석에는 멀티모달 제공자가 필요합니다. Gemini 또는 Groq API 키를 입력하거나 Codex 연결을 준비해 주세요.',
+        supportsCodex
+          ? '이미지 분석에는 멀티모달 제공자가 필요합니다. Gemini 또는 Groq API 키를 입력하거나 Codex 연결을 준비해 주세요.'
+          : '이미지 분석에는 멀티모달 제공자가 필요합니다. Gemini 또는 Groq API 키를 입력해 주세요.',
       )
     }
 

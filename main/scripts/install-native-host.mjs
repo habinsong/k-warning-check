@@ -49,7 +49,25 @@ function targetManifestPath() {
 
 async function ensureWrapper() {
   if (process.platform === 'win32') {
-    const wrapperScript = `@echo off\r\nset SCRIPT_DIR=%~dp0\r\nnode "%SCRIPT_DIR%codex-native-host.mjs"\r\n`
+    const wrapperScript = `@echo off\r
+setlocal\r
+set "SCRIPT_DIR=%~dp0"\r
+set "NODE_BIN="\r
+for %%I in ("%SCRIPT_DIR%node.exe" "%LOCALAPPDATA%\\Programs\\nodejs\\node.exe" "%ProgramFiles%\\nodejs\\node.exe" "%ProgramFiles(x86)%\\nodejs\\node.exe") do (\r
+  if not defined NODE_BIN if exist "%%~fI" set "NODE_BIN=%%~fI"\r
+)\r
+if not defined NODE_BIN (\r
+  for /f "delims=" %%I in ('where node 2^>nul') do (\r
+    if not defined NODE_BIN set "NODE_BIN=%%~fI"\r
+  )\r
+)\r
+if not defined NODE_BIN (\r
+  >&2 echo Node.js 실행 파일을 찾지 못했습니다. Node.js를 설치한 뒤 다시 시도하세요.\r
+  exit /b 1\r
+)\r
+set "PATH=%SCRIPT_DIR%;%APPDATA%\\npm;%LOCALAPPDATA%\\Programs\\nodejs;%PATH%"\r
+"%NODE_BIN%" "%SCRIPT_DIR%codex-native-host.mjs"\r
+`
     await writeFile(windowsHostWrapper, wrapperScript, 'utf8')
     return windowsHostWrapper
   }
@@ -74,7 +92,7 @@ const manifestPath = targetManifestPath()
 const hostWrapper = await ensureWrapper()
 const manifest = {
   name: hostName,
-  description: 'K-워닝체크 Codex Native Host',
+  description: 'K-워닝체크 Local Native Host',
   path: hostWrapper,
   type: 'stdio',
   allowed_origins: ['chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg/'],
@@ -87,5 +105,5 @@ if (process.platform === 'win32') {
   await registerWindowsHost(manifestPath)
 }
 
-console.log(`네이티브 호스트를 설치했습니다: ${manifestPath}`)
-console.log(`네이티브 호스트 실행 래퍼: ${hostWrapper}`)
+console.log(`로컬 네이티브 호스트를 설치했습니다: ${manifestPath}`)
+console.log(`로컬 네이티브 호스트 실행 래퍼: ${hostWrapper}`)

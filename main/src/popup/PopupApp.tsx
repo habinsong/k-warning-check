@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Settings2 } from 'lucide-react'
+import { isProviderSelectable } from '@/core/providerStateModel'
 import { RecordCard } from '@/popup/components/RecordCard'
 import { ScoreGauge } from '@/popup/components/ScoreGauge'
 import { DEFAULT_PROVIDER_STATE } from '@/shared/defaults'
@@ -15,11 +16,13 @@ import {
   GEMINI_MODEL_OPTIONS,
   GROQ_MODEL_OPTIONS,
 } from '@/shared/providerOptions'
+import { getSupportedProviders } from '@/shared/runtimeCapabilities'
 import { sendRuntimeMessage } from '@/shared/runtime'
 import type {
   AnalysisInput,
   PopupStatus,
   ProviderState,
+  RuntimeCapabilities,
   RuntimeMessage,
   StoredAnalysisRecord,
   ThemeMode,
@@ -28,22 +31,14 @@ import type {
 function applyTheme(mode: ThemeMode) {
   const isDark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme:dark)').matches)
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-  try { localStorage.setItem('kwc-theme', mode) } catch {}
+  try {
+    localStorage.setItem('kwc-theme', mode)
+  } catch {
+    return
+  }
 }
 
 type PopupTab = 'text' | 'url' | 'image'
-
-function isProviderAvailable(state: ProviderState, provider: ProviderState['preferredProvider']) {
-  if (provider === 'codex') {
-    return !state.webSearchEnabled
-  }
-
-  if (provider === 'gemini') {
-    return state.gemini.hasSecret && Boolean(state.gemini.storageBackend)
-  }
-
-  return state.groq.hasSecret && Boolean(state.groq.storageBackend)
-}
 
 async function fileToDataUrl(file: File, locale: ProviderState['uiLocale']) {
   return new Promise<string>((resolve, reject) => {
@@ -65,10 +60,18 @@ export function PopupApp() {
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [providerState, setProviderState] = useState<ProviderState>(DEFAULT_PROVIDER_STATE)
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null)
   const [isDraggingImage, setIsDraggingImage] = useState(false)
   const providerStateRef = useRef(providerState)
   const locale = providerState.uiLocale
   const isEnglish = locale === 'en'
+  const supportsCodex = runtimeCapabilities?.supportsCodex ?? false
+  const visibleProviders = useMemo<ProviderState['preferredProvider'][]>(
+    () => (runtimeCapabilities ? getSupportedProviders(runtimeCapabilities) : ['gemini', 'groq']),
+    [runtimeCapabilities],
+  )
+  const effectivePreferredProvider =
+    !supportsCodex && providerState.preferredProvider === 'codex' ? 'gemini' : providerState.preferredProvider
 
   useEffect(() => {
     providerStateRef.current = providerState
@@ -76,16 +79,18 @@ export function PopupApp() {
 
   useEffect(() => {
     void (async () => {
-      const [latest, records, loadedProviderState, popupStatus] = await Promise.all([
+      const [latest, records, loadedProviderState, loadedRuntimeCapabilities, popupStatus] = await Promise.all([
         sendRuntimeMessage<StoredAnalysisRecord | null>({ type: 'get-latest-record' }),
         sendRuntimeMessage<StoredAnalysisRecord[]>({ type: 'get-history' }),
         sendRuntimeMessage<ProviderState>({ type: 'get-provider-state' }),
+        sendRuntimeMessage<RuntimeCapabilities>({ type: 'get-runtime-capabilities' }),
         sendRuntimeMessage<PopupStatus>({ type: 'get-popup-status' }),
       ])
 
       setLatestRecord(latest)
       setHistory(records)
       setProviderState(loadedProviderState)
+      setRuntimeCapabilities(loadedRuntimeCapabilities)
       applyTheme(loadedProviderState.theme ?? 'system')
       setLoading(popupStatus.loading)
       setStatusMessage(popupStatus.message)
@@ -121,14 +126,14 @@ export function PopupApp() {
   }, [activeTab, imageFile, textValue, urlValue])
 
   const activeModelOptions = useMemo(() => {
-    if (providerState.preferredProvider === 'gemini') {
+    if (effectivePreferredProvider === 'gemini') {
       return GEMINI_MODEL_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
       }))
     }
 
-    if (providerState.preferredProvider === 'groq') {
+    if (effectivePreferredProvider === 'groq') {
       return GROQ_MODEL_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
@@ -139,19 +144,19 @@ export function PopupApp() {
       id: option.id,
       label: option.label,
     }))
-  }, [providerState.preferredProvider])
+  }, [effectivePreferredProvider])
 
   const activeModelValue = useMemo(() => {
-    if (providerState.preferredProvider === 'gemini') {
+    if (effectivePreferredProvider === 'gemini') {
       return providerState.gemini.model
     }
 
-    if (providerState.preferredProvider === 'groq') {
+    if (effectivePreferredProvider === 'groq') {
       return providerState.groq.model
     }
 
     return providerState.codex.model
-  }, [providerState])
+  }, [effectivePreferredProvider, providerState])
 
   const mergedModelOptions = useMemo(() => {
     if (activeModelOptions.some((option) => option.id === activeModelValue)) {
@@ -268,10 +273,20 @@ export function PopupApp() {
   }
 
   async function changePreferredProvider(nextProvider: ProviderState['preferredProvider']) {
+    if (!supportsCodex && nextProvider === 'codex') {
+      return
+    }
+
     const resolvedProvider =
       providerStateRef.current.webSearchEnabled && nextProvider === 'codex' ? 'gemini' : nextProvider
 
-    if (!isProviderAvailable(providerStateRef.current, resolvedProvider)) {
+    if (
+      !isProviderSelectable(
+        providerStateRef.current,
+        resolvedProvider,
+        runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
+      )
+    ) {
       return
     }
 
@@ -282,7 +297,10 @@ export function PopupApp() {
   }
 
   async function changePreferredModel(nextModel: string) {
-    const preferredProvider = providerStateRef.current.preferredProvider
+    const preferredProvider =
+      !supportsCodex && providerStateRef.current.preferredProvider === 'codex'
+        ? 'gemini'
+        : providerStateRef.current.preferredProvider
 
     if (preferredProvider === 'gemini') {
       await persistProviderState((current) => ({
@@ -376,14 +394,18 @@ export function PopupApp() {
       ) : null}
 
       {!providerState.onboardingCompleted ? (
-        <section className="mt-3 rounded-lg border border-[#d6d9e2] bg-white p-5 shadow-sm">
+        <section className="mt-3 flex flex-col items-center rounded-lg border border-[#d6d9e2] bg-white p-5 text-center shadow-sm">
           <div className="text-lg font-semibold text-[#2c3470]">
             {isEnglish ? 'Finish setup before analyzing' : '분석 전에 초기 설정을 완료하세요'}
           </div>
           <p className="mt-2 text-sm leading-6 text-[#596278]">
             {isEnglish
-              ? 'Open the settings page to complete the first-run introduction, choose Korean or English, and optionally connect Gemini, Groq, or Codex.'
-              : '설정 페이지에서 첫 실행 소개, 한국어/영어 선택, Gemini·Groq·Codex 연결을 먼저 완료해 주세요.'}
+              ? supportsCodex
+                ? 'Open the settings page to complete the first-run introduction, choose Korean or English, and optionally connect Gemini, Groq, or Codex.'
+                : 'Open the settings page to complete the first-run introduction, choose Korean or English, and optionally connect Gemini or Groq.'
+              : supportsCodex
+                ? '설정 페이지에서 첫 실행 소개, 한국어/영어 선택, Gemini·Groq·Codex 연결을 먼저 완료해 주세요.'
+                : '설정 페이지에서 첫 실행 소개, 한국어/영어 선택, Gemini·Groq 연결을 먼저 완료해 주세요.'}
           </p>
           <button
             className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md bg-[#2c3470] px-4 py-3 text-sm font-semibold text-white"
@@ -398,21 +420,21 @@ export function PopupApp() {
           <label className="flex min-w-[144px] items-center gap-2 text-xs text-[#6c7488]">
             <span className="shrink-0">{isEnglish ? 'Provider' : '제공자'}</span>
             <select
-              value={providerState.preferredProvider}
+              value={effectivePreferredProvider}
               onChange={(event) =>
                 void changePreferredProvider(event.target.value as ProviderState['preferredProvider'])
               }
               className="min-w-0 flex-1 rounded-md border border-[#d6d9e2] bg-[#f8f9fb] px-2 py-1.5 text-xs font-medium text-[#27304d] outline-none"
             >
-              <option value="codex" disabled={providerState.webSearchEnabled}>
-                Codex
-              </option>
-              <option value="gemini" disabled={!providerState.gemini.hasSecret || !providerState.gemini.storageBackend}>
-                Gemini
-              </option>
-              <option value="groq" disabled={!providerState.groq.hasSecret || !providerState.groq.storageBackend}>
-                Groq
-              </option>
+              {visibleProviders.map((provider) => (
+                <option
+                  key={provider}
+                  value={provider}
+                  disabled={!isProviderSelectable(providerState, provider, runtimeCapabilities ?? { os: 'unknown', supportsCodex: false })}
+                >
+                  {provider === 'codex' ? 'Codex' : provider === 'gemini' ? 'Gemini' : 'Groq'}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-[#6c7488]">

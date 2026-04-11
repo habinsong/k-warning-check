@@ -8,6 +8,7 @@ export type AnalysisSource =
 
 export type UiLocale = 'ko' | 'en'
 export type DetectedLanguage = 'ko' | 'en' | 'mixed'
+export type RuntimeOs = 'mac' | 'windows' | 'linux' | 'android' | 'cros' | 'openbsd' | 'fuchsia' | 'unknown'
 
 export type RiskCategory =
   | '금전 요구'
@@ -208,6 +209,11 @@ export interface WebFreshnessVerification {
   references: WebFreshnessVerificationReference[]
 }
 
+export interface RuntimeCapabilities {
+  os: RuntimeOs
+  supportsCodex: boolean
+}
+
 export interface ProviderUsage {
   provider: ProviderKind
   operations: Array<'summarize' | 'refineExplanation' | 'assistOcr' | 'verifyFreshness'>
@@ -270,6 +276,7 @@ export interface CodexBridgeSettings {
 export interface ProviderState {
   uiLocale: UiLocale
   onboardingCompleted: boolean
+  onboardingVersion?: number
   preferredProvider: Exclude<ProviderKind, 'local'>
   webSearchEnabled: boolean
   theme: ThemeMode
@@ -279,6 +286,13 @@ export interface ProviderState {
   gemini: GeminiSettings
   groq: GroqSettings
   codex: CodexBridgeSettings
+}
+
+export interface ShortcutConfig {
+  openAnalyze: string
+  analyzeSelection: string
+  analyzeClipboard: string
+  captureArea: string
 }
 
 export interface ProviderSecrets {
@@ -357,6 +371,7 @@ export type RuntimeMessage =
   | { type: 'save-provider-state'; state: ProviderState }
   | { type: 'save-provider-secret'; provider: SecretProviderKind; secret: string; retention: ApiKeyRetention }
   | { type: 'delete-provider-secret'; provider: SecretProviderKind }
+  | { type: 'get-runtime-capabilities' }
   | { type: 'load-groq-models' }
   | { type: 'get-popup-status' }
   | { type: 'get-codex-status' }

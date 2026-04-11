@@ -4,4 +4,5 @@ pub mod history;
 pub mod provider_bridge;
 pub mod provider_state;
 pub mod secure_store;
+pub mod shortcuts;
 pub mod system;

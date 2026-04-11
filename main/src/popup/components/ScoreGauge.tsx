@@ -125,7 +125,6 @@ export function ScoreGauge({
   const scoreText = `${Math.round(score)}%`
   const visibleTags = aiHookingTags.slice(0, 2)
   const overflowCount = Math.max(aiHookingTags.length - visibleTags.length, 0)
-  const tagColumnCount = overflowCount > 0 ? visibleTags.length + 1 : visibleTags.length
 
   return (
     <section className="overflow-hidden rounded-lg bg-[#2c3470] text-white shadow-sm">
@@ -138,26 +137,18 @@ export function ScoreGauge({
             </div>
             <div className="mt-1 text-[34px] font-semibold leading-none tabular-nums">{scoreText}</div>
             {visibleTags.length > 0 ? (
-              <div
-                className="mt-1.5 grid max-w-full items-center gap-1.5"
-                style={{
-                  gridTemplateColumns:
-                    overflowCount > 0
-                      ? 'minmax(0, 1fr) minmax(0, 1fr) auto'
-                      : `repeat(${tagColumnCount}, minmax(0, 1fr))`,
-                }}
-              >
+              <div className="mt-1.5 flex max-w-full flex-wrap items-center justify-start gap-1.5">
                 {visibleTags.map((tag) => (
                   <span
                     key={tag}
-                    className="min-w-0 truncate whitespace-nowrap rounded-full border border-[#8fa0ff]/30 bg-[#6d78d6]/20 px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#eef1ff]"
+                    className="inline-flex max-w-full items-center justify-center truncate whitespace-nowrap rounded-full border border-[#8fa0ff]/30 bg-[#6d78d6]/20 px-3 py-0.5 text-center text-[11px] font-semibold leading-4 text-[#eef1ff]"
                     title={tag}
                   >
                     {translateAiTag(tag, locale)}
                   </span>
                 ))}
                 {overflowCount > 0 ? (
-                  <span className="whitespace-nowrap rounded-full border border-[#8fa0ff]/30 bg-[#6d78d6]/20 px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#eef1ff]">
+                  <span className="inline-flex items-center justify-center whitespace-nowrap rounded-full border border-[#8fa0ff]/30 bg-[#6d78d6]/20 px-3 py-0.5 text-center text-[11px] font-semibold leading-4 text-[#eef1ff]">
                     +{overflowCount}
                   </span>
                 ) : null}

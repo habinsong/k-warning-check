@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Keyboard, Save } from 'lucide-react'
+import { isProviderSelectable } from '@/core/providerStateModel'
 import { RecordCard } from '@/popup/components/RecordCard'
 import {
   buildRecordTitle,
@@ -21,13 +22,28 @@ import {
 } from '@/shared/providerOptions'
 import { LocaleToggle } from '@/shared/LocaleToggle'
 import { OnboardingFlow } from '@/shared/OnboardingFlow'
+import {
+  getCodexUnsupportedMessage,
+  getSupportedProviders,
+} from '@/shared/runtimeCapabilities'
 import { sendRuntimeMessage } from '@/shared/runtime'
-import type { GroqToolId, ProviderState, StoredAnalysisRecord, ThemeMode, UiLocale } from '@/shared/types'
+import type {
+  GroqToolId,
+  ProviderState,
+  RuntimeCapabilities,
+  StoredAnalysisRecord,
+  ThemeMode,
+  UiLocale,
+} from '@/shared/types'
 
 function applyTheme(mode: ThemeMode) {
   const isDark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme:dark)').matches)
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-  try { localStorage.setItem('kwc-theme', mode) } catch {}
+  try {
+    localStorage.setItem('kwc-theme', mode)
+  } catch {
+    return
+  }
 }
 
 type SettingsTab = 'general' | 'api' | 'codex' | 'history'
@@ -91,9 +107,21 @@ export function OptionsApp() {
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>('general')
   const [historyPage, setHistoryPage] = useState(1)
   const [shortcuts, setShortcuts] = useState<ShortcutInfo[]>([])
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null)
 
   const locale = state?.uiLocale ?? 'ko'
   const isEnglish = locale === 'en'
+  const supportsCodex = runtimeCapabilities?.supportsCodex ?? false
+  const visibleProviders = useMemo<ProviderState['preferredProvider'][]>(
+    () => (runtimeCapabilities ? getSupportedProviders(runtimeCapabilities) : ['gemini', 'groq']),
+    [runtimeCapabilities],
+  )
+  const effectivePreferredProvider =
+    !supportsCodex && state?.preferredProvider === 'codex' ? 'gemini' : state?.preferredProvider ?? 'gemini'
+  const supportedSettingsTabs = useMemo<SettingsTab[]>(
+    () => (supportsCodex ? ['general', 'api', 'codex', 'history'] : ['general', 'api', 'history']),
+    [supportsCodex],
+  )
   const savedLabel = isEnglish ? 'Saved' : '저장됨'
   const unsavedLabel = isEnglish ? 'Not saved' : '미저장'
   const unavailableLabel = isEnglish ? 'Unavailable' : '사용 불가'
@@ -102,11 +130,13 @@ export function OptionsApp() {
 
   useEffect(() => {
     void (async () => {
-      const [providerState, records] = await Promise.all([
+      const [providerState, records, loadedRuntimeCapabilities] = await Promise.all([
         sendRuntimeMessage<ProviderState>({ type: 'get-provider-state' }),
         sendRuntimeMessage<StoredAnalysisRecord[]>({ type: 'get-history' }),
+        sendRuntimeMessage<RuntimeCapabilities>({ type: 'get-runtime-capabilities' }),
       ])
       setState(providerState)
+      setRuntimeCapabilities(loadedRuntimeCapabilities)
       applyTheme(providerState.theme ?? 'system')
       setHistory(records)
       setStatusMessage(providerState.onboardingCompleted ? (providerState.uiLocale === 'en' ? 'Settings loaded.' : '설정을 불러왔습니다.') : '')
@@ -115,7 +145,7 @@ export function OptionsApp() {
     })().catch((error) => {
       setStatusMessage(toUiErrorMessage(error, locale, 'Failed to load settings.', '설정을 불러오지 못했습니다.'))
     })
-  }, [setState])
+  }, [locale, setState])
 
   useEffect(() => {
     async function loadShortcuts() {
@@ -164,6 +194,12 @@ export function OptionsApp() {
     setHistoryPage((current) => Math.min(current, totalHistoryPages))
   }, [totalHistoryPages])
 
+  useEffect(() => {
+    if (!supportsCodex && activeSettingsTab === 'codex') {
+      setActiveSettingsTab('general')
+    }
+  }, [activeSettingsTab, supportsCodex])
+
   async function saveSettings() {
     if (!state) {
       return
@@ -199,6 +235,7 @@ export function OptionsApp() {
         state: {
           ...state,
           onboardingCompleted: true,
+          onboardingVersion: 2,
         },
       })
       setState(nextState)
@@ -209,6 +246,11 @@ export function OptionsApp() {
   }
 
   async function checkCodexStatus() {
+    if (!supportsCodex) {
+      setStatusMessage(getCodexUnsupportedMessage(locale))
+      return
+    }
+
     setStatusMessage(locale === 'en' ? 'Checking Codex connection and login status.' : 'Codex 연결과 로그인 상태를 확인하는 중입니다.')
 
     try {
@@ -225,6 +267,11 @@ export function OptionsApp() {
   }
 
   async function startCodexLogin() {
+    if (!supportsCodex) {
+      setStatusMessage(getCodexUnsupportedMessage(locale))
+      return
+    }
+
     setStatusMessage(locale === 'en' ? 'Starting Codex login.' : 'Codex 로그인을 시작하는 중입니다.')
 
     try {
@@ -262,7 +309,7 @@ export function OptionsApp() {
             : 'Codex OAuth 로그인을 시작했습니다.',
       )
 
-      if (result.authUrl?.startsWith('https://auth.openai.com/oauth/authorize')) {
+      if (result.authUrl?.startsWith('https://auth.openai.com/')) {
         await chrome.tabs.create({ url: result.authUrl })
       }
     } catch (error) {
@@ -271,6 +318,11 @@ export function OptionsApp() {
   }
 
   async function startCodexBridge() {
+    if (!supportsCodex) {
+      setStatusMessage(getCodexUnsupportedMessage(locale))
+      return
+    }
+
     setStatusMessage(locale === 'en' ? 'Starting Codex connection.' : 'Codex 연결을 시작하는 중입니다.')
 
     try {
@@ -413,7 +465,7 @@ export function OptionsApp() {
     }
   }
 
-  if (!state) {
+  if (!state || !runtimeCapabilities) {
     return <main className="p-6 text-sm text-slate-500">{isEnglish ? 'Loading settings.' : '설정을 불러오는 중입니다.'}</main>
   }
 
@@ -422,6 +474,7 @@ export function OptionsApp() {
       <OnboardingFlow
         locale={state.uiLocale}
         providerState={state}
+        runtimeCapabilities={runtimeCapabilities}
         geminiApiKeyDraft={geminiApiKeyDraft}
         groqApiKeyDraft={groqApiKeyDraft}
         statusMessage={statusMessage}
@@ -450,8 +503,12 @@ export function OptionsApp() {
             <h1 className="mt-1 text-3xl font-semibold">{isEnglish ? 'Settings and History' : '설정 및 기록 관리'}</h1>
             <p className="mt-2 text-sm text-slate-500">
               {isEnglish
-                ? 'Manage Gemini and Groq keys, model choices, Codex connection, and saved analysis history.'
-                : 'Gemini·Groq API 키와 모델, Codex 연결, 상세 이력을 관리합니다.'}
+                ? supportsCodex
+                  ? 'Manage Gemini and Groq keys, model choices, Codex connection, and saved analysis history.'
+                  : 'Manage Gemini and Groq keys, model choices, and saved analysis history.'
+                : supportsCodex
+                  ? 'Gemini·Groq API 키와 모델, Codex 연결, 상세 이력을 관리합니다.'
+                  : 'Gemini·Groq API 키와 모델, 상세 이력을 관리합니다.'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -470,13 +527,8 @@ export function OptionsApp() {
           {getPrivacyWarningText(locale)}
         </div>
 
-        <nav className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-4">
-          {[
-            ['general', '기본'],
-            ['api', 'API 제공자'],
-            ['codex', 'Codex'],
-            ['history', '분석 기록'],
-          ].map(([tab]) => (
+        <nav className={`grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm ${supportsCodex ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+          {supportedSettingsTabs.map((tab) => (
             <button
               key={tab}
               className={`rounded-lg px-4 py-2 text-sm font-medium ${
@@ -492,8 +544,8 @@ export function OptionsApp() {
                   : '기본'
                 : tab === 'api'
                   ? isEnglish
-                    ? 'Providers'
-                    : 'API 제공자'
+                  ? 'Providers'
+                  : 'API 제공자'
                   : tab === 'codex'
                     ? 'Codex'
                     : isEnglish
@@ -533,21 +585,21 @@ export function OptionsApp() {
                 <label className="block rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
                   <div className="font-medium">{isEnglish ? 'Preferred provider' : '기본 제공자'}</div>
                   <select
-                    value={state.preferredProvider}
+                    value={effectivePreferredProvider}
                     onChange={(event) =>
                       update('preferredProvider', event.target.value as ProviderState['preferredProvider'])
                     }
                     className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
                   >
-                    <option value="codex" disabled={state.webSearchEnabled}>
-                      Codex
-                    </option>
-                    <option value="gemini" disabled={!state.gemini.hasSecret || !state.gemini.storageBackend}>
-                      Gemini
-                    </option>
-                    <option value="groq" disabled={!state.groq.hasSecret || !state.groq.storageBackend}>
-                      Groq
-                    </option>
+                    {visibleProviders.map((provider) => (
+                      <option
+                        key={provider}
+                        value={provider}
+                        disabled={!isProviderSelectable(state, provider, runtimeCapabilities)}
+                      >
+                        {provider === 'codex' ? 'Codex' : provider === 'gemini' ? 'Gemini' : 'Groq'}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -557,7 +609,7 @@ export function OptionsApp() {
               <dl className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">{isEnglish ? 'Preferred provider' : '기본 제공자'}</dt>
-                  <dd className="font-medium text-slate-900">{state.preferredProvider}</dd>
+                  <dd className="font-medium text-slate-900">{effectivePreferredProvider}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">{isEnglish ? 'Gemini model' : 'Gemini 모델'}</dt>
@@ -583,18 +635,22 @@ export function OptionsApp() {
                       : unavailableLabel}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">{isEnglish ? 'Codex model' : 'Codex 모델'}</dt>
-                  <dd className="font-medium text-slate-900">{state.codex.model}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">{isEnglish ? 'Codex reasoning' : 'Codex 추론'}</dt>
-                  <dd className="font-medium text-slate-900">{state.codex.reasoningEffort}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-slate-500">{isEnglish ? 'Codex connection' : 'Codex 연결'}</dt>
-                  <dd className="font-medium text-slate-900">{codexStatus?.status ?? notCheckedLabel}</dd>
-                </div>
+                {supportsCodex ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-slate-500">{isEnglish ? 'Codex model' : 'Codex 모델'}</dt>
+                      <dd className="font-medium text-slate-900">{state.codex.model}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-slate-500">{isEnglish ? 'Codex reasoning' : 'Codex 추론'}</dt>
+                      <dd className="font-medium text-slate-900">{state.codex.reasoningEffort}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-slate-500">{isEnglish ? 'Codex connection' : 'Codex 연결'}</dt>
+                      <dd className="font-medium text-slate-900">{codexStatus?.status ?? notCheckedLabel}</dd>
+                    </div>
+                  </>
+                ) : null}
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-slate-500">{isEnglish ? 'Saved records' : '저장 기록 수'}</dt>
                   <dd className="font-medium text-slate-900">{isEnglish ? `${history.length} records` : `${history.length}건`}</dd>
@@ -607,8 +663,12 @@ export function OptionsApp() {
                 {isEnglish ? 'Reference notes:' : '공식 기준 참고:'}
                 <br />
                 {isEnglish ? 'Uses Gemini 3 naming based on Google AI docs' : 'Google AI Gemini 3 문서 기준 모델명 사용'}
-                <br />
-                {isEnglish ? 'OpenAI-side assistance uses the local OAuth session from `codex login`' : 'OpenAI 계열 보조는 `codex login` 기준 로컬 OAuth 세션 사용'}
+                {supportsCodex ? (
+                  <>
+                    <br />
+                    {isEnglish ? 'OpenAI-side assistance uses the local OAuth session from `codex login`' : 'OpenAI 계열 보조는 `codex login` 기준 로컬 OAuth 세션 사용'}
+                  </>
+                ) : null}
               </div>
             </aside>
             </div>
@@ -905,7 +965,7 @@ export function OptionsApp() {
           </section>
         ) : null}
 
-        {activeSettingsTab === 'codex' ? (
+        {supportsCodex && activeSettingsTab === 'codex' ? (
           <section className="grid gap-4">
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -937,7 +997,7 @@ export function OptionsApp() {
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!codexAuthUrl}
                     onClick={() =>
-                      codexAuthUrl.startsWith('https://auth.openai.com/oauth/authorize') &&
+                      codexAuthUrl.startsWith('https://auth.openai.com/') &&
                       chrome.tabs.create({ url: codexAuthUrl })
                     }
                   >

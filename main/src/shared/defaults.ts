@@ -3,6 +3,7 @@ import type { ProviderState } from '@/shared/types'
 export const DEFAULT_PROVIDER_STATE: ProviderState = {
   uiLocale: 'ko',
   onboardingCompleted: false,
+  onboardingVersion: 0,
   preferredProvider: 'codex',
   webSearchEnabled: true,
   theme: 'system',

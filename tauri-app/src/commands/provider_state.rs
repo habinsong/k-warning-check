@@ -2,8 +2,22 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::commands::history::HistoryStore;
-use crate::secure::derive_secure_store_status_from_state;
+use crate::secure::{derive_secure_store_status_from_state, get_secure_store_status};
 use crate::store::{kwc_data_dir, read_json, write_json};
+
+const CURRENT_ONBOARDING_VERSION: u64 = 2;
+
+fn runtime_supports_codex() -> bool {
+    !cfg!(target_os = "windows")
+}
+
+fn default_preferred_provider() -> &'static str {
+    if runtime_supports_codex() {
+        "codex"
+    } else {
+        "gemini"
+    }
+}
 
 fn provider_state_path() -> std::path::PathBuf {
     kwc_data_dir().join("provider-state.json")
@@ -13,7 +27,8 @@ fn default_provider_state() -> Value {
     json!({
         "uiLocale": "ko",
         "onboardingCompleted": false,
-        "preferredProvider": "codex",
+        "onboardingVersion": 0,
+        "preferredProvider": default_preferred_provider(),
         "webSearchEnabled": true,
         "theme": "system",
         "autoUseConfiguredProviders": true,
@@ -74,10 +89,13 @@ fn merge_objects(base: &Value, overlay: &Value) -> Value {
 
 fn is_provider_selectable(state: &Value, provider: &str) -> bool {
     match provider {
-        "codex" => !state
-            .get("webSearchEnabled")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+        "codex" => {
+            runtime_supports_codex()
+                && !state
+                    .get("webSearchEnabled")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+        }
         "gemini" => {
             let section = state.get("gemini").unwrap_or(&Value::Null);
             section
@@ -105,6 +123,7 @@ fn is_provider_selectable(state: &Value, provider: &str) -> bool {
 }
 
 fn normalize_preferred_provider(state: Value) -> Value {
+    let default_provider = default_preferred_provider();
     let web_search = state
         .get("webSearchEnabled")
         .and_then(|v| v.as_bool())
@@ -116,32 +135,75 @@ fn normalize_preferred_provider(state: Value) -> Value {
     if web_search && !has_search_capable {
         let mut s = state;
         s["webSearchEnabled"] = json!(false);
-        s["preferredProvider"] = json!("codex");
+        s["preferredProvider"] = json!(default_provider);
         return s;
     }
 
     let preferred = state
         .get("preferredProvider")
         .and_then(|v| v.as_str())
-        .unwrap_or("codex");
+        .unwrap_or(default_provider)
+        .to_string();
+
+    let mut state = state;
+
+    if !runtime_supports_codex() && preferred == "codex" {
+        let has_selectable_remote_provider =
+            is_provider_selectable(&state, "gemini") || is_provider_selectable(&state, "groq");
+
+        state["preferredProvider"] = json!(default_provider);
+
+        if !has_selectable_remote_provider {
+            state["remoteExplanationEnabled"] = json!(false);
+            state["remoteOcrEnabled"] = json!(false);
+            state["webSearchEnabled"] = json!(false);
+        }
+    }
+
+    let preferred = state
+        .get("preferredProvider")
+        .and_then(|v| v.as_str())
+        .unwrap_or(default_provider);
 
     if is_provider_selectable(&state, preferred) {
         return state;
     }
 
+    let web_search = state
+        .get("webSearchEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let fallback_order: Vec<&str> = if web_search {
-        vec!["gemini", "groq", "codex"]
+        if runtime_supports_codex() {
+            vec!["gemini", "groq", "codex"]
+        } else {
+            vec!["gemini", "groq"]
+        }
     } else {
-        vec!["codex", "gemini", "groq"]
+        if runtime_supports_codex() {
+            vec!["codex", "gemini", "groq"]
+        } else {
+            vec!["gemini", "groq"]
+        }
     };
 
     let fallback = fallback_order
         .iter()
         .find(|p| is_provider_selectable(&state, p))
-        .unwrap_or(&"codex");
+        .unwrap_or(&default_provider);
 
     let mut s = state;
     s["preferredProvider"] = json!(*fallback);
+
+    if !runtime_supports_codex()
+        && !is_provider_selectable(&s, "gemini")
+        && !is_provider_selectable(&s, "groq")
+    {
+        s["remoteExplanationEnabled"] = json!(false);
+        s["remoteOcrEnabled"] = json!(false);
+    }
+
     s
 }
 
@@ -159,6 +221,23 @@ fn sync_provider_security_metadata(mut state: Value, secure_status: &Value) -> V
             state["groq"] = merge_objects(&groq, groq_status);
         }
     }
+    state
+}
+
+fn normalize_onboarding_state(mut state: Value) -> Value {
+    let onboarding_completed = state
+        .get("onboardingCompleted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let onboarding_version = state
+        .get("onboardingVersion")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    if onboarding_completed && onboarding_version < CURRENT_ONBOARDING_VERSION {
+        state["onboardingCompleted"] = json!(false);
+    }
+
     state
 }
 
@@ -204,11 +283,28 @@ fn merge_provider_state(raw_state: &Value, secure_status: &Value) -> Value {
     });
 
     let synced = sync_provider_security_metadata(merged, secure_status);
-    normalize_preferred_provider(synced)
+    let normalized_onboarding = normalize_onboarding_state(synced);
+    normalize_preferred_provider(normalized_onboarding)
 }
 
 fn sanitize_persisted_state(state: &Value) -> Value {
     let mut s = state.clone();
+    if let Some(gemini) = s.get("gemini").cloned() {
+        let mut gemini = gemini;
+        gemini["hasSecret"] = json!(false);
+        gemini["storageBackend"] = Value::Null;
+        gemini["expiresAt"] = Value::Null;
+        gemini["lastValidationAt"] = Value::Null;
+        s["gemini"] = gemini;
+    }
+    if let Some(groq) = s.get("groq").cloned() {
+        let mut groq = groq;
+        groq["hasSecret"] = json!(false);
+        groq["storageBackend"] = Value::Null;
+        groq["expiresAt"] = Value::Null;
+        groq["lastValidationAt"] = Value::Null;
+        s["groq"] = groq;
+    }
     if let Some(codex) = s.get("codex").cloned() {
         let mut codex = codex;
         codex["bridgeToken"] = json!("");
@@ -218,6 +314,14 @@ fn sanitize_persisted_state(state: &Value) -> Value {
 }
 
 async fn get_bridge_connection_info(preferred_root: Option<&str>) -> Value {
+    if !runtime_supports_codex() {
+        return json!({
+            "bridgeUrl": "http://127.0.0.1:4317",
+            "bridgeToken": "",
+            "workspaceRoot": preferred_root.unwrap_or(""),
+        });
+    }
+
     let bridge_state_path = kwc_data_dir().join("codex-bridge.json");
     let bridge_state = read_json(&bridge_state_path, json!({})).await;
     let token = bridge_state
@@ -285,7 +389,8 @@ pub async fn get_provider_state_merged() -> Value {
         state
     };
 
-    let secure_status = derive_secure_store_status_from_state(&resolved);
+    let secure_status = serde_json::to_value(get_secure_store_status().await)
+        .unwrap_or_else(|_| derive_secure_store_status_from_state(&resolved));
     merge_provider_state(&resolved, &secure_status)
 }
 

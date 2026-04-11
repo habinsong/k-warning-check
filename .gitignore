@@ -12,10 +12,18 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 main/.desktop-renderer
 mac-app/
 windows-app/
 .claude/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
 
 # Editor directories and files
 .vscode/*

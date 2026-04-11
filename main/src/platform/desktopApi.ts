@@ -2,6 +2,7 @@ import type {
   ApiKeyRetention,
   CaptureRect,
   ProviderState,
+  RuntimeCapabilities,
   SecretProviderKind,
   SecureStoreProviderStatus,
   SecureStoreStatus,
@@ -80,6 +81,7 @@ export interface DesktopApi {
   system: {
     readClipboardText(): Promise<string>
     captureScreenRegion(): Promise<DesktopCaptureResult>
+    getRuntimeCapabilities(): Promise<RuntimeCapabilities>
     getScreenCapturePermissionStatus(): Promise<DesktopScreenCapturePermissionStatus>
     requestScreenCapturePermission(): Promise<DesktopScreenCapturePermissionStatus>
     openExternal(url: string): Promise<void>

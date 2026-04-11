@@ -2,11 +2,8 @@ import { createServer } from 'node:http'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { execFile, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { existsSync, realpathSync } from 'node:fs'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
 const PORT = Number(process.env.CODEX_BRIDGE_PORT || 4317)
 const HOST = process.env.CODEX_BRIDGE_HOST || '127.0.0.1'
 const BRIDGE_TOKEN = String(process.env.CODEX_BRIDGE_TOKEN || '').trim()
@@ -22,6 +19,12 @@ const CODEX_PATH_CANDIDATES = [
   path.join(process.env.HOME ?? '', '.npm-global', 'bin', 'codex'),
   '/usr/local/bin/codex',
   '/opt/homebrew/bin/codex',
+  process.platform === 'win32' ? path.join(process.env.APPDATA ?? '', 'npm', 'codex.cmd') : '',
+  process.platform === 'win32' ? path.join(process.env.APPDATA ?? '', 'npm', 'codex') : '',
+  process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Codex', 'codex.exe') : '',
+  process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA ?? '', 'Microsoft', 'WindowsApps', 'codex.exe') : '',
+  process.platform === 'win32' ? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Roaming', 'npm', 'codex.cmd') : '',
+  process.platform === 'win32' ? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Roaming', 'npm', 'codex') : '',
 ].filter(Boolean)
 const CODEX_BIN = CODEX_PATH_CANDIDATES.find((candidate) => existsSync(candidate)) ?? 'codex'
 const TOOL_ENV = {
@@ -35,10 +38,64 @@ const TOOL_ENV = {
     '/bin',
     '/usr/sbin',
     '/sbin',
+    process.platform === 'win32' ? path.join(process.env.APPDATA ?? '', 'npm') : '',
+    process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'nodejs') : '',
+    process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA ?? '', 'Microsoft', 'WindowsApps') : '',
+    process.platform === 'win32' ? path.join(process.env.ProgramFiles ?? '', 'nodejs') : '',
+    process.platform === 'win32' ? path.join(process.env['ProgramFiles(x86)'] ?? '', 'nodejs') : '',
     process.env.PATH ?? '',
   ]
     .filter(Boolean)
-    .join(':'),
+    .join(path.delimiter),
+}
+
+function isWindowsCommandScript(program) {
+  const normalized = String(program || '').trim().toLowerCase()
+  return normalized.endsWith('.cmd') || normalized.endsWith('.bat')
+}
+
+function spawnCodex(args, options = {}) {
+  if (process.platform === 'win32' && isWindowsCommandScript(CODEX_BIN)) {
+    return spawn(process.env.ComSpec || 'cmd.exe', ['/C', CODEX_BIN, ...args], {
+      windowsHide: true,
+      ...options,
+    })
+  }
+
+  return spawn(CODEX_BIN, args, {
+    windowsHide: true,
+    ...options,
+  })
+}
+
+async function runCodexCommand(args) {
+  return await new Promise((resolve, reject) => {
+    const child = spawnCodex(args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: TOOL_ENV,
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+
+    child.on('error', reject)
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr })
+        return
+      }
+
+      reject(new Error(stderr.trim() || stdout.trim() || `Codex 실행 실패: ${code}`))
+    })
+  })
 }
 
 async function runCodex(prompt, workspaceRoot, options = {}) {
@@ -82,7 +139,7 @@ async function runCodex(prompt, workspaceRoot, options = {}) {
 
   try {
     await new Promise((resolve, reject) => {
-      const child = spawn(CODEX_BIN, args, {
+      const child = spawnCodex(args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: TOOL_ENV,
       })
@@ -138,10 +195,7 @@ function parseDataUrl(imageDataUrl) {
 }
 
 async function getCodexStatus() {
-  const { stdout, stderr } = await execFileAsync(CODEX_BIN, ['login', 'status'], {
-    env: TOOL_ENV,
-    maxBuffer: 1024 * 1024,
-  })
+  const { stdout, stderr } = await runCodexCommand(['login', 'status'])
   return (stdout || stderr).trim()
 }
 

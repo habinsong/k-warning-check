@@ -1,5 +1,48 @@
 use serde_json::{json, Value};
 
+fn runtime_os_name() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        return "mac";
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        return "windows";
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        return "linux";
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        return "android";
+    }
+
+    #[cfg(target_os = "openbsd")]
+    {
+        return "openbsd";
+    }
+
+    #[cfg(target_os = "fuchsia")]
+    {
+        return "fuchsia";
+    }
+
+    #[allow(unreachable_code)]
+    "unknown"
+}
+
+#[tauri::command]
+pub async fn kwc_system_get_runtime_capabilities() -> Result<Value, String> {
+    Ok(json!({
+        "os": runtime_os_name(),
+        "supportsCodex": !cfg!(target_os = "windows"),
+    }))
+}
+
 fn parse_safe_external_url(url: &str) -> Result<String, String> {
     let parsed = url::Url::parse(url).map_err(|_| "외부 URL 형식을 해석하지 못했습니다.")?;
     if parsed.scheme() != "https" {

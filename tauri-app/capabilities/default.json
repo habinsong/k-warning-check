@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "K-WarningCheck Desktop 기본 권한",
-  "windows": ["main", "capture-overlay"],
+  "windows": ["main", "capture-overlay", "launcher"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -19,6 +19,7 @@
     "shell:allow-open",
     "clipboard-manager:default",
     "clipboard-manager:allow-read-text",
-    "opener:default"
+    "opener:default",
+    "global-shortcut:default"
   ]
 }

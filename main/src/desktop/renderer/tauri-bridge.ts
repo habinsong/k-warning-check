@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { DesktopApi, CaptureOverlayApi } from '@/platform/desktopApi'
-import type { CaptureRect } from '@/shared/types'
+import { setCachedRuntimeCapabilities } from '@/shared/runtimeCapabilities'
+import type { CaptureRect, RuntimeCapabilities, ShortcutConfig } from '@/shared/types'
+
+export const tauriShortcutApi = {
+  getConfig: (): Promise<ShortcutConfig> => invoke('kwc_shortcuts_get_config'),
+  saveConfig: (config: ShortcutConfig): Promise<ShortcutConfig> =>
+    invoke('kwc_shortcuts_save_config', { config }),
+}
 
 const tauriDesktopApi: DesktopApi = {
   history: {
@@ -36,6 +43,10 @@ const tauriDesktopApi: DesktopApi = {
   system: {
     readClipboardText: () => invoke('kwc_system_read_clipboard_text'),
     captureScreenRegion: () => invoke('kwc_system_capture_screen_region'),
+    getRuntimeCapabilities: () =>
+      invoke<RuntimeCapabilities>('kwc_system_get_runtime_capabilities').then((capabilities) =>
+        setCachedRuntimeCapabilities(capabilities),
+      ),
     getScreenCapturePermissionStatus: () =>
       invoke('kwc_system_get_screen_capture_permission_status'),
     requestScreenCapturePermission: () =>

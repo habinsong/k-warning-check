@@ -19,6 +19,7 @@ export default defineConfig({
       input: {
         desktop: resolve(__dirname, 'desktop.html'),
         'capture-overlay': resolve(__dirname, 'capture-overlay.html'),
+        launcher: resolve(__dirname, 'launcher.html'),
       },
       output: {
         entryFileNames: 'assets/[name].js',

@@ -58,6 +58,10 @@ export const desktopSecureStoreService = {
 }
 
 setCodexBridgeRestartHandler(async () => {
+  const runtimeCapabilities = await window.kwcDesktop.system.getRuntimeCapabilities()
+  if (!runtimeCapabilities.supportsCodex) {
+    return
+  }
   await window.kwcDesktop.codex.startBridge(true)
 })
 

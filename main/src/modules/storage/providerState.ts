@@ -1,15 +1,17 @@
 import {
   deriveSecureStoreStatusFromState,
   mergeProviderState,
-  normalizePreferredProvider,
+  normalizePreferredProviderWithCapabilities,
   sanitizePersistedState,
 } from '@/core/providerStateModel'
 import { DEFAULT_PROVIDER_STATE } from '@/shared/defaults'
 import { STORAGE_KEYS } from '@/shared/constants'
+import { getChromeRuntimeCapabilities } from '@/shared/runtimeCapabilities'
 import type { ProviderState, SecretProviderKind } from '@/shared/types'
 import {
   resolveCodexWorkspaceRoot,
   setProviderSecret,
+  getSecureStoreStatus,
 } from '@/modules/storage/secureStore'
 
 async function migrateLegacySecret(
@@ -85,14 +87,15 @@ async function migrateLegacyStoredSecrets(rawState: Partial<ProviderState> | und
 }
 
 export async function getProviderState() {
+  const runtimeCapabilities = await getChromeRuntimeCapabilities()
   const stored = await chrome.storage.local.get(STORAGE_KEYS.providerState)
   const rawState = stored[STORAGE_KEYS.providerState] as Partial<ProviderState> | undefined
 
   await migrateLegacyStoredSecrets(rawState)
 
-  const resolvedWorkspaceRoot = await resolveCodexWorkspaceRoot(rawState?.codex?.workspaceRoot).catch(
-    () => null,
-  )
+  const resolvedWorkspaceRoot = runtimeCapabilities.supportsCodex
+    ? await resolveCodexWorkspaceRoot(rawState?.codex?.workspaceRoot).catch(() => null)
+    : null
 
   const resolvedRawState: Partial<ProviderState> | undefined = rawState
     ? {
@@ -115,12 +118,14 @@ export async function getProviderState() {
           },
         }
       : rawState
+  const secureStoreStatus = await getSecureStoreStatus().catch(() => deriveSecureStoreStatusFromState(resolvedRawState))
 
-  return mergeProviderState(resolvedRawState, deriveSecureStoreStatusFromState(resolvedRawState))
+  return mergeProviderState(resolvedRawState, secureStoreStatus, runtimeCapabilities)
 }
 
 export async function saveProviderState(state: ProviderState) {
-  const normalizedState = normalizePreferredProvider(state)
+  const runtimeCapabilities = await getChromeRuntimeCapabilities()
+  const normalizedState = normalizePreferredProviderWithCapabilities(state, runtimeCapabilities)
 
   await chrome.storage.local.set({
     [STORAGE_KEYS.providerState]: sanitizePersistedState(normalizedState),

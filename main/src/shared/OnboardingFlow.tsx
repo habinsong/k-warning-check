@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, ExternalLink, KeyRound, Languages, ShieldCheck } from 'lucide-react'
 import { LocaleToggle } from '@/shared/LocaleToggle'
-import type { ProviderState, UiLocale } from '@/shared/types'
+import type { ProviderState, RuntimeCapabilities, UiLocale } from '@/shared/types'
 
 interface OnboardingFlowProps {
   locale: UiLocale
   providerState: ProviderState
+  runtimeCapabilities: RuntimeCapabilities
   geminiApiKeyDraft: string
   groqApiKeyDraft: string
   statusMessage?: string
@@ -24,7 +25,7 @@ interface OnboardingFlowProps {
   onComplete: () => Promise<void> | void
 }
 
-function onboardingCopy(locale: UiLocale) {
+function onboardingCopy(locale: UiLocale, supportsCodex: boolean) {
   if (locale === 'en') {
     return {
       badge: 'K-WarningCheck',
@@ -39,7 +40,9 @@ function onboardingCopy(locale: UiLocale) {
         },
         {
           title: 'The more polished it sounds, the more critically it should be read.',
-          body: 'Your selected AI provider helps K-WarningCheck critique hype, AI slop, outdated claims, and suspiciously polished wording. This step is optional and can be changed later.',
+          body: supportsCodex
+            ? 'Your selected AI provider helps K-WarningCheck critique hype, AI slop, outdated claims, and suspiciously polished wording. This step is optional and can be changed later.'
+            : 'Optional Gemini or Groq providers help K-WarningCheck critique hype, AI slop, outdated claims, and suspiciously polished wording. This step is optional and can be changed later.',
         },
       ],
       languageTitle: 'Choose your language',
@@ -47,7 +50,9 @@ function onboardingCopy(locale: UiLocale) {
         'This controls the app interface and result rendering. Input analysis still auto-detects Korean, English, or mixed text.',
       settingsTitle: 'Connect providers',
       settingsBody:
-        'Connect optional providers for deeper critique, freshness checks, and Codex-assisted refinement. You can skip all of them and start right away.',
+        supportsCodex
+          ? 'Connect optional providers for deeper critique, freshness checks, and Codex-assisted refinement. You can skip all of them and start right away.'
+          : 'Connect optional providers for deeper critique and freshness checks. You can skip all of them and start right away.',
       back: 'Back',
       next: 'Next',
       start: 'Start',
@@ -85,7 +90,9 @@ function onboardingCopy(locale: UiLocale) {
       },
       {
         title: '그럴듯한 문구일수록, 더 비판적으로 보십시오.',
-        body: '선택한 AI 제공자는 과장된 주장, AI 슬롭, 구식 정보, 수상한 후킹 문체를 더 날카롭게 분석하는 데 사용됩니다. 연결은 선택 사항이며, 나중에 다시 설정할 수 있습니다.',
+        body: supportsCodex
+          ? '선택한 AI 제공자는 과장된 주장, AI 슬롭, 구식 정보, 수상한 후킹 문체를 더 날카롭게 분석하는 데 사용됩니다. 연결은 선택 사항이며, 나중에 다시 설정할 수 있습니다.'
+          : '선택한 Gemini 또는 Groq 제공자는 과장된 주장, AI 슬롭, 구식 정보, 수상한 후킹 문체를 더 날카롭게 분석하는 데 사용됩니다. 연결은 선택 사항이며, 나중에 다시 설정할 수 있습니다.',
       },
     ],
     languageTitle: '언어를 선택하세요',
@@ -93,7 +100,9 @@ function onboardingCopy(locale: UiLocale) {
       '이 설정은 앱 UI와 결과 렌더링에 적용됩니다. 실제 분석은 한국어, 영어, 혼합 입력을 자동 감지합니다.',
     settingsTitle: '제공자를 연결하세요',
     settingsBody:
-      '웹 최신성 검증, Codex 보조 설명 품질을 높여 줍니다. 아무것도 연결하지 않고 바로 시작해도 됩니다.',
+      supportsCodex
+        ? '웹 최신성 검증, Codex 보조 설명 품질을 높여 줍니다. 아무것도 연결하지 않고 바로 시작해도 됩니다.'
+        : '웹 최신성 검증과 설명 품질을 높여 줍니다. 아무것도 연결하지 않고 바로 시작해도 됩니다.',
     back: '뒤로',
     next: '다음',
     start: '시작',
@@ -121,6 +130,7 @@ function onboardingCopy(locale: UiLocale) {
 export function OnboardingFlow({
   locale,
   providerState,
+  runtimeCapabilities,
   geminiApiKeyDraft,
   groqApiKeyDraft,
   statusMessage,
@@ -140,7 +150,7 @@ export function OnboardingFlow({
 }: OnboardingFlowProps) {
   const [step, setStep] = useState(0)
   const [starting, setStarting] = useState(false)
-  const copy = onboardingCopy(locale)
+  const copy = onboardingCopy(locale, runtimeCapabilities.supportsCodex)
   const hero = copy.heroes[step]
 
   const heroPills = [
@@ -350,46 +360,48 @@ export function OnboardingFlow({
                         </section>
                       ) : null}
 
-                      <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">
-                              {copy.codexTitle}
+                      {runtimeCapabilities.supportsCodex ? (
+                        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-900">
+                                {copy.codexTitle}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {copy.codexStatus}: {codexStatus || copy.unknown}
+                              </div>
                             </div>
-                            <div className="mt-1 text-xs text-slate-500">
-                              {copy.codexStatus}: {codexStatus || copy.unknown}
-                            </div>
+
+                            {onRefreshCodexStatus ? (
+                              <button
+                                className="inline-flex rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
+                                onClick={() => void onRefreshCodexStatus()}
+                                type="button"
+                              >
+                                {copy.refresh}
+                              </button>
+                            ) : null}
                           </div>
 
-                          {onRefreshCodexStatus ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
                             <button
-                              className="inline-flex rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
-                              onClick={() => void onRefreshCodexStatus()}
+                              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                              onClick={() => void onStartCodexBridge()}
                               type="button"
                             >
-                              {copy.refresh}
+                              {copy.codexBridge}
                             </button>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-                            onClick={() => void onStartCodexBridge()}
-                            type="button"
-                          >
-                            {copy.codexBridge}
-                          </button>
-                          <button
-                            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
-                            onClick={() => void onStartCodexLogin()}
-                            type="button"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            {copy.codexLogin}
-                          </button>
-                        </div>
-                      </section>
+                            <button
+                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+                              onClick={() => void onStartCodexLogin()}
+                              type="button"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              {copy.codexLogin}
+                            </button>
+                          </div>
+                        </section>
+                      ) : null}
                     </div>
 
                     {statusMessage ? (
