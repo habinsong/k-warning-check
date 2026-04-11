@@ -55,7 +55,7 @@ Git에 올리면 안 되는 항목:
 
 현재 ignore 대상 예시:
 
-- `.claude/`
+- 개발 메타 디렉터리
 - `.DS_Store`
 - `dist/`
 - `mac-app/`

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/readme-hero.svg" alt="K-WarningCheck 히어로 배너" width="100%">
+  <img src="docs/assets/readme-hero-ko.png" alt="K-WarningCheck 히어로 배너" width="100%">
 </p>
 
 <p align="center">
@@ -38,11 +38,56 @@ Chrome 확장과 데스크톱 앱이 같은 분석 엔진을 공유하므로 결
 
 ## 화면 구성
 
-| 데스크톱 작업 화면 | 확장프로그램 빠른 점검 |
-|---|---|
-| ![데스크톱 화면](docs/assets/readme-desktop-shot.svg) | ![확장프로그램 화면](docs/assets/readme-extension-shot.svg) |
+<table>
+  <tr>
+    <td width="50%">
+      <img src="img/KOR/desktop-main-analyzed.png" alt="데스크톱 분석 화면" width="100%">
+    </td>
+    <td width="50%">
+      <img src="img/KOR/extension-empty-state.png" alt="확장프로그램 초기 화면" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>데스크톱 작업 화면</strong><br>시그널 스코어, 태그, 제공자 선택, 입력 검토 화면을 한 번에 보여줍니다.</td>
+    <td align="center"><strong>크롬 확장프로그램</strong><br>첫 실행 안내, 최근 기록, 설정 진입까지 빠르게 확인할 수 있습니다.</td>
+  </tr>
+</table>
 
-![설치 흐름 요약](docs/assets/readme-install-flow.svg)
+<table>
+  <tr>
+    <td width="50%">
+      <img src="img/KOR/settings-general.png" alt="기본 설정 화면" width="100%">
+    </td>
+    <td width="50%">
+      <img src="img/KOR/settings-history.png" alt="분석 기록 화면" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>공용 설정 화면</strong><br>테마, 단축키, 개인정보 경고, 제공자 상태를 한곳에서 관리합니다.</td>
+    <td align="center"><strong>분석 기록 검토</strong><br>저장된 기록을 펼쳐 보고, 다시 분석하거나 삭제할 수 있습니다.</td>
+  </tr>
+</table>
+
+## 초기 셋업 흐름
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="img/KOR/onboarding-step-1.png" alt="셋업 1단계" width="100%">
+    </td>
+    <td width="33%">
+      <img src="img/KOR/onboarding-step-2-language.png" alt="셋업 2단계 언어 선택" width="100%">
+    </td>
+    <td width="33%">
+      <img src="img/KOR/onboarding-step-3-providers.png" alt="셋업 3단계 제공자 연결" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>1단계</strong><br>데모 분석 카드를 먼저 보여 주고 바로 다음 단계로 넘어갑니다.</td>
+    <td align="center"><strong>2단계</strong><br>한국어와 영어 중 UI와 결과 렌더링 언어를 선택합니다.</td>
+    <td align="center"><strong>3단계</strong><br>Gemini, Groq, 플랫폼 지원 Codex를 필요할 때만 연결합니다.</td>
+  </tr>
+</table>
 
 ## 핵심 특징
 

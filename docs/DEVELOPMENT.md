@@ -69,7 +69,7 @@ cargo check --manifest-path tauri-app/Cargo.toml
 
 - `.env*`
 - 원본 빌드 출력인 `dist/`, `mac-app/`, `windows-app/`
-- `.claude/`
+- 개발 메타 디렉터리
 - `.DS_Store`
 - 개인 경로, 인증서, 키 파일, 실제 비밀값
 

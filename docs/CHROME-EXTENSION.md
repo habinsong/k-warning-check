@@ -4,6 +4,63 @@ Chrome 확장은 페이지 근처에서 빠르게 위험 신호를 확인하는 
 
 ---
 
+## 실제 화면
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="../img/KOR/extension-empty-state.png" alt="확장프로그램 초기 화면" width="100%">
+    </td>
+    <td width="50%">
+      <img src="../img/KOR/settings-general.png" alt="확장 설정 기본 화면" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Popup 초기 화면</strong><br>설정 완료 전에는 안내와 최근 기록만 먼저 보여줍니다.</td>
+    <td align="center"><strong>Options 기본 탭</strong><br>테마, 단축키, 기본 동작 정책을 한곳에서 관리합니다.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-1.png" alt="확장 온보딩 1단계" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-2-language.png" alt="확장 온보딩 2단계" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-3-providers.png" alt="확장 온보딩 3단계" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>1단계</strong><br>분석 데모 확인</td>
+    <td align="center"><strong>2단계</strong><br>언어 선택</td>
+    <td align="center"><strong>3단계</strong><br>제공자 연결</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="../img/KOR/settings-providers.png" alt="제공자 설정 화면" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/settings-history.png" alt="기록 설정 화면" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/settings-codex.png" alt="Codex 설정 화면" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>제공자 설정</strong><br>Gemini, Groq 저장과 모델 선택</td>
+    <td align="center"><strong>기록 관리</strong><br>각 분석 결과를 펼쳐 다시 검토</td>
+    <td align="center"><strong>Codex 설정</strong><br>지원 플랫폼에서만 노출되는 예시 화면</td>
+  </tr>
+</table>
+
+---
+
 ## 구성
 
 ```text

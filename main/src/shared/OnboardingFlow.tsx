@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ExternalLink, KeyRound, Languages, ShieldCheck } from 'lucide-react'
+import {
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  KeyRound,
+  Languages,
+  Link2,
+  ShieldAlert,
+  ShieldCheck,
+  TriangleAlert,
+} from 'lucide-react'
 import { LocaleToggle } from '@/shared/LocaleToggle'
 import type { ProviderState, RuntimeCapabilities, UiLocale } from '@/shared/types'
 
@@ -74,6 +85,43 @@ function onboardingCopy(locale: UiLocale, supportsCodex: boolean) {
       savedSecret: 'Saved in OS secure storage',
       starting: 'Starting...',
       unknown: 'Unknown',
+      demoLabel: 'Demo analysis',
+      demoSignalScore: 'Signal Score',
+      demoCards: [
+        {
+          icon: ShieldAlert,
+          iconTone: 'text-[#bb3c2e]',
+          score: 86,
+          grade: 'High risk',
+          title: 'Impersonation + account reset',
+          summary: 'Urgency language, a masked domain, and a forced verification step all stack risk upward.',
+          tags: ['Phishing', 'Masked URL', 'Urgency'],
+          scoreTone: 'text-[#bb3c2e]',
+          badgeClass: 'border-[#f2c7c1] bg-[#fff4f1] text-[#bb3c2e]',
+        },
+        {
+          icon: Bot,
+          iconTone: 'text-[#5f56d8]',
+          score: 72,
+          grade: 'Hooking copy',
+          title: 'AI-heavy certainty without proof',
+          summary: 'The sentence is polished, but the evidence density is low and the promise is too absolute.',
+          tags: ['AI slop', 'Authority push', 'Low evidence'],
+          scoreTone: 'text-[#5f56d8]',
+          badgeClass: 'border-[#d8d4ff] bg-[#f3f1ff] text-[#5f56d8]',
+        },
+        {
+          icon: Link2,
+          iconTone: 'text-[#0f766e]',
+          score: 64,
+          grade: 'Needs review',
+          title: 'Short-link landing page',
+          summary: 'The link hides the destination and leans on scarcity phrasing before showing any verifiable details.',
+          tags: ['Short link', 'Scarcity', 'Trust check'],
+          scoreTone: 'text-[#0f766e]',
+          badgeClass: 'border-[#b7e5de] bg-[#eefcf9] text-[#0f766e]',
+        },
+      ],
     }
   }
 
@@ -124,6 +172,43 @@ function onboardingCopy(locale: UiLocale, supportsCodex: boolean) {
     savedSecret: 'OS 보안 저장소에 저장됨',
     starting: '시작 중...',
     unknown: '미확인',
+    demoLabel: '데모 분석',
+    demoSignalScore: '시그널 스코어',
+    demoCards: [
+      {
+        icon: ShieldAlert,
+        iconTone: 'text-[#bb3c2e]',
+        score: 86,
+        grade: '고위험',
+        title: '기관 사칭 + 계정 재인증',
+        summary: '긴급성 문구, 마스킹된 도메인, 강제 인증 흐름이 함께 겹쳐 위험도를 끌어올립니다.',
+        tags: ['피싱', '마스킹 URL', '긴급 압박'],
+        scoreTone: 'text-[#bb3c2e]',
+        badgeClass: 'border-[#f2c7c1] bg-[#fff4f1] text-[#bb3c2e]',
+      },
+      {
+        icon: Bot,
+        iconTone: 'text-[#5f56d8]',
+        score: 72,
+        grade: '후킹 문체',
+        title: '근거 없는 AI 확신형 문구',
+        summary: '말투는 매끈하지만 근거 밀도는 낮고, 결과 약속은 지나치게 절대적입니다.',
+        tags: ['AI 슬롭', '권위 압박', '근거 부족'],
+        scoreTone: 'text-[#5f56d8]',
+        badgeClass: 'border-[#d8d4ff] bg-[#f3f1ff] text-[#5f56d8]',
+      },
+      {
+        icon: Link2,
+        iconTone: 'text-[#0f766e]',
+        score: 64,
+        grade: '추가 확인',
+        title: '단축 링크 랜딩 페이지',
+        summary: '실제 목적지를 숨긴 링크가 검증 가능한 정보보다 희소성 문구를 먼저 밀어붙입니다.',
+        tags: ['단축 링크', '희소성', '신뢰 확인'],
+        scoreTone: 'text-[#0f766e]',
+        badgeClass: 'border-[#b7e5de] bg-[#eefcf9] text-[#0f766e]',
+      },
+    ],
   }
 }
 
@@ -218,7 +303,57 @@ export function OnboardingFlow({
 
               {step === 0 ? (
                 <div className="flex flex-1 flex-col">
-                  <div className="flex-1" />
+                  <div className="flex flex-1 items-center justify-center">
+                    <div className="w-full max-w-[420px] space-y-4">
+                      {copy.demoCards.map(({ icon: Icon, iconTone, score, grade, title, summary, tags, scoreTone, badgeClass }) => (
+                        <article
+                          key={`${title}-${locale}`}
+                          className="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 ${iconTone}`}>
+                                <Icon className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                  {copy.demoLabel}
+                                </div>
+                                <div className="mt-1 text-sm font-semibold text-slate-900">{title}</div>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                {copy.demoSignalScore}
+                              </div>
+                              <div className={`mt-1 text-3xl font-semibold ${scoreTone}`}>{score}</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
+                              <TriangleAlert className="mr-1.5 h-3.5 w-3.5" />
+                              {grade}
+                            </span>
+                          </div>
+
+                          <p className="mt-4 text-sm leading-6 text-slate-600">{summary}</p>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
                   <div className="mt-auto flex justify-center pt-6">
                     <button
                       aria-label={copy.next}

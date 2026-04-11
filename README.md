@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/readme-hero.svg" alt="K-WarningCheck hero banner" width="100%">
+  <img src="docs/assets/readme-hero-en.png" alt="K-WarningCheck hero banner" width="100%">
 </p>
 
 <p align="center">
@@ -36,13 +36,58 @@ It focuses on:
 
 The same analysis engine powers both the Chrome extension and the desktop app, so the warning logic stays consistent across surfaces.
 
-## Screens
+## Product Tour
 
-| Desktop workspace | Extension quick check |
-|---|---|
-| ![Desktop app overview](docs/assets/readme-desktop-shot.svg) | ![Chrome extension overview](docs/assets/readme-extension-shot.svg) |
+<table>
+  <tr>
+    <td width="50%">
+      <img src="img/ENG/desktop-main-analyzed.png" alt="Desktop workspace with analysis result" width="100%">
+    </td>
+    <td width="50%">
+      <img src="img/ENG/extension-empty-state.png" alt="Chrome extension before setup" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Desktop workspace</strong><br>Signal score, tags, provider selection, and full input review in one surface.</td>
+    <td align="center"><strong>Chrome extension</strong><br>Fast first-run entry point with history preview and direct setup access.</td>
+  </tr>
+</table>
 
-![Install flow overview](docs/assets/readme-install-flow.svg)
+<table>
+  <tr>
+    <td width="50%">
+      <img src="img/ENG/settings-general.png" alt="General settings screen" width="100%">
+    </td>
+    <td width="50%">
+      <img src="img/ENG/settings-history.png" alt="History settings screen" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Shared settings</strong><br>Theme, shortcuts, privacy defaults, and provider state all stay in one place.</td>
+    <td align="center"><strong>History review</strong><br>Saved records can be expanded, reanalyzed, or cleared from the settings surface.</td>
+  </tr>
+</table>
+
+## Setup Flow
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="img/ENG/onboarding-step-1.png" alt="Setup step 1" width="100%">
+    </td>
+    <td width="33%">
+      <img src="img/ENG/onboarding-step-2-language.png" alt="Setup step 2 language selection" width="100%">
+    </td>
+    <td width="33%">
+      <img src="img/ENG/onboarding-step-3-providers.png" alt="Setup step 3 provider connection" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Step 1</strong><br>See the demo analysis cards before doing anything else.</td>
+    <td align="center"><strong>Step 2</strong><br>Choose Korean or English for the interface and the rendered analysis output.</td>
+    <td align="center"><strong>Step 3</strong><br>Connect Gemini, Groq, and platform-supported Codex only if you need them.</td>
+  </tr>
+</table>
 
 ## Why It Works
 

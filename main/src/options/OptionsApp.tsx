@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Save } from 'lucide-react'
 import { isProviderSelectable } from '@/core/providerStateModel'
 import { RecordCard } from '@/popup/components/RecordCard'
@@ -7,6 +7,7 @@ import {
   formatDateTime,
   getPrivacyWarningText,
   isNeutralAnalysisResult,
+  renderAnalysisSummary,
   translateGroqToolLabel,
   translateModelDescription,
   translateReasoningLabel,
@@ -108,6 +109,8 @@ export function OptionsApp() {
   const [historyPage, setHistoryPage] = useState(1)
   const [shortcuts, setShortcuts] = useState<ShortcutInfo[]>([])
   const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilities | null>(null)
+  const stateRef = useRef<ProviderState | null>(null)
+  const stateWriteVersionRef = useRef(0)
 
   const locale = state?.uiLocale ?? 'ko'
   const isEnglish = locale === 'en'
@@ -129,6 +132,30 @@ export function OptionsApp() {
   const notCheckedLabel = isEnglish ? 'Not checked' : '미확인'
 
   useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  function setLocalProviderState(nextState: ProviderState) {
+    stateRef.current = nextState
+    setState(nextState)
+  }
+
+  async function persistProviderState(nextState: ProviderState) {
+    const requestVersion = ++stateWriteVersionRef.current
+    const savedState = await sendRuntimeMessage<ProviderState>({
+      type: 'save-provider-state',
+      state: nextState,
+    })
+
+    if (requestVersion !== stateWriteVersionRef.current) {
+      return stateRef.current ?? savedState
+    }
+
+    setLocalProviderState(savedState)
+    return savedState
+  }
+
+  useEffect(() => {
     void (async () => {
       const [providerState, records, loadedRuntimeCapabilities] = await Promise.all([
         sendRuntimeMessage<ProviderState>({ type: 'get-provider-state' }),
@@ -143,9 +170,9 @@ export function OptionsApp() {
       setGeminiApiKeyDraft('')
       setGroqApiKeyDraft('')
     })().catch((error) => {
-      setStatusMessage(toUiErrorMessage(error, locale, 'Failed to load settings.', '설정을 불러오지 못했습니다.'))
+      setStatusMessage(error instanceof Error ? error.message : '설정을 불러오지 못했습니다.')
     })
-  }, [locale, setState])
+  }, [setState])
 
   useEffect(() => {
     async function loadShortcuts() {
@@ -201,17 +228,14 @@ export function OptionsApp() {
   }, [activeSettingsTab, supportsCodex])
 
   async function saveSettings() {
-    if (!state) {
+    const currentState = stateRef.current
+    if (!currentState) {
       return
     }
 
     setSaving(true)
     try {
-      const nextState = await sendRuntimeMessage<ProviderState>({
-        type: 'save-provider-state',
-        state,
-      })
-      setState(nextState)
+      await persistProviderState(currentState)
       setStatusMessage(locale === 'en' ? 'Settings saved.' : '설정을 저장했습니다.')
     } catch (error) {
       setStatusMessage(toUiErrorMessage(error, locale, 'Failed to save settings.', '설정 저장에 실패했습니다.'))
@@ -221,24 +245,44 @@ export function OptionsApp() {
   }
 
   function updateLocale(nextLocale: UiLocale) {
-    setState((current) => (current ? { ...current, uiLocale: nextLocale } : current))
+    const currentState = stateRef.current
+    if (!currentState || currentState.uiLocale === nextLocale) {
+      return
+    }
+
+    const previousState = currentState
+    const optimisticState: ProviderState = {
+      ...currentState,
+      uiLocale: nextLocale,
+    }
+
+    setLocalProviderState(optimisticState)
+
+    void (async () => {
+      try {
+        await persistProviderState(optimisticState)
+        setStatusMessage(nextLocale === 'en' ? 'Language updated.' : '언어 설정을 저장했습니다.')
+      } catch (error) {
+        setLocalProviderState(previousState)
+        setStatusMessage(
+          toUiErrorMessage(error, nextLocale, 'Failed to save language setting.', '언어 설정 저장에 실패했습니다.'),
+        )
+      }
+    })()
   }
 
   async function completeOnboarding() {
-    if (!state) {
+    const currentState = stateRef.current
+    if (!currentState) {
       return
     }
 
     try {
-      const nextState = await sendRuntimeMessage<ProviderState>({
-        type: 'save-provider-state',
-        state: {
-          ...state,
-          onboardingCompleted: true,
-          onboardingVersion: 2,
-        },
+      const nextState = await persistProviderState({
+        ...currentState,
+        onboardingCompleted: true,
+        onboardingVersion: 2,
       })
-      setState(nextState)
       setStatusMessage(nextState.uiLocale === 'en' ? 'Setup completed.' : '초기 설정을 완료했습니다.')
     } catch (error) {
       setStatusMessage(toUiErrorMessage(error, locale, 'Failed to complete setup.', '초기 설정 완료에 실패했습니다.'))
@@ -359,12 +403,13 @@ export function OptionsApp() {
   }
 
   async function saveProviderSecret(provider: 'gemini' | 'groq') {
-    if (!state) {
+    const currentState = stateRef.current
+    if (!currentState) {
       return
     }
 
     const secret = provider === 'gemini' ? geminiApiKeyDraft : groqApiKeyDraft
-    const retention = provider === 'gemini' ? state.gemini.apiKeyRetention : state.groq.apiKeyRetention
+    const retention = provider === 'gemini' ? currentState.gemini.apiKeyRetention : currentState.groq.apiKeyRetention
 
     if (!secret.trim()) {
       setStatusMessage(
@@ -376,10 +421,7 @@ export function OptionsApp() {
     }
 
     try {
-      const persistedState = await sendRuntimeMessage<ProviderState>({
-        type: 'save-provider-state',
-        state,
-      })
+      await persistProviderState(currentState)
 
       const nextState = await sendRuntimeMessage<ProviderState>({
         type: 'save-provider-secret',
@@ -388,7 +430,7 @@ export function OptionsApp() {
         retention,
       })
 
-      setState({ ...persistedState, ...nextState })
+      setLocalProviderState(nextState)
       if (provider === 'gemini') {
         setGeminiApiKeyDraft('')
       } else {
@@ -417,7 +459,7 @@ export function OptionsApp() {
       provider,
     })
 
-    setState(nextState)
+    setLocalProviderState(nextState)
     if (provider === 'gemini') {
       setGeminiApiKeyDraft('')
     } else {
@@ -1149,26 +1191,42 @@ export function OptionsApp() {
           </div>
 
           <div className="mt-4 space-y-3">
-            {pagedHistory.map((record) => (
-              <article
-                key={record.id}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
-              >
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="break-words text-base font-semibold leading-6 text-slate-900">
-                      {buildRecordTitle(
-                        record.result.primaryType,
-                        record.input.rawText || record.ocrText,
-                        locale,
-                        isNeutralAnalysisResult(record.result),
-                      )}
+            {pagedHistory.map((record) => {
+              const neutralResult = isNeutralAnalysisResult(record.result)
+              const summary = renderAnalysisSummary(record.result, locale)
+
+              return (
+                <details
+                  key={record.id}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="break-words text-base font-semibold leading-6 text-slate-900">
+                          {buildRecordTitle(
+                            record.result.primaryType,
+                            record.input.rawText || record.ocrText,
+                            locale,
+                            neutralResult,
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs leading-4 text-slate-500">
+                          {formatDateTime(record.createdAt, locale)}
+                        </div>
+                        {summary ? (
+                          <div className="mt-2 break-words text-sm leading-6 text-slate-600">
+                            {summary}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                        {record.result.score}
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs leading-4 text-slate-500">
-                      {formatDateTime(record.createdAt, locale)}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
+                  </summary>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
                     <button
                       className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
                       onClick={() => void reanalyzeRecord(record.id)}
@@ -1182,10 +1240,13 @@ export function OptionsApp() {
                       {isEnglish ? 'Delete' : '삭제'}
                     </button>
                   </div>
-                </div>
-                <RecordCard record={record} locale={locale} />
-              </article>
-            ))}
+
+                  <div className="mt-4">
+                    <RecordCard record={record} locale={locale} />
+                  </div>
+                </details>
+              )
+            })}
 
             {history.length === 0 ? (
               <div className="rounded-lg bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">

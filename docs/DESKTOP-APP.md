@@ -4,6 +4,29 @@
 
 ---
 
+## 실제 화면
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="../img/KOR/desktop-main-idle.png" alt="데스크톱 메인 화면 분석 전" width="100%">
+    </td>
+    <td width="50%">
+      <img src="../img/KOR/desktop-main-analyzed.png" alt="데스크톱 메인 화면 분석 후" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>분석 전</strong><br>입력 탭과 제공자 선택, 기본 워크플로를 먼저 보여줍니다.</td>
+    <td align="center"><strong>분석 후</strong><br>시그널 스코어, 태그, 유형, 등급, 증거를 함께 확인합니다.</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="../img/KOR/onboarding-step-1.png" alt="공용 온보딩 1단계" width="78%">
+</p>
+
+---
+
 ## 구성
 
 ```text

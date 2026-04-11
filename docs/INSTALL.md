@@ -4,6 +4,33 @@
 
 ---
 
+## 실제 첫 실행 화면
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-1.png" alt="온보딩 1단계" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-2-language.png" alt="온보딩 2단계" width="100%">
+    </td>
+    <td width="33%">
+      <img src="../img/KOR/onboarding-step-3-providers.png" alt="온보딩 3단계" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>1단계</strong><br>데모 분석 카드 확인</td>
+    <td align="center"><strong>2단계</strong><br>언어 선택</td>
+    <td align="center"><strong>3단계</strong><br>제공자 연결</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="../img/KOR/extension-empty-state.png" alt="초기 설정 전 확장프로그램 화면" width="42%">
+</p>
+
+---
+
 ## 가장 빠른 설치
 
 루트 `build/` 폴더에는 바로 확인할 수 있는 배포 산출물을 정리해 둡니다.
@@ -30,6 +57,10 @@ npm run native:install
 ```
 
 이 로컬 host는 secure store 연동에 사용됩니다. 비윈도우 Chrome에서는 Codex 관련 로컬 흐름도 함께 사용할 수 있지만, Windows에서는 Codex UI가 계속 숨겨집니다.
+
+<p align="center">
+  <img src="../img/KOR/extension-empty-state.png" alt="Chrome 확장 초기 화면" width="42%">
+</p>
 
 ---
 
@@ -112,6 +143,21 @@ npm run build:windows
 - Codex: 지원 플랫폼에서만 노출
 
 API 키는 OS 보안 저장소를 사용합니다. 저장소에는 실제 키를 남기지 않습니다.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="../img/KOR/settings-providers.png" alt="제공자 설정 화면" width="100%">
+    </td>
+    <td width="50%">
+      <img src="../img/KOR/settings-history.png" alt="기록 설정 화면" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>제공자 설정</strong><br>Gemini, Groq, 지원 플랫폼의 Codex를 저장합니다.</td>
+    <td align="center"><strong>분석 기록</strong><br>저장된 결과를 다시 열고, 재분석하거나 삭제합니다.</td>
+  </tr>
+</table>
 
 ---
 

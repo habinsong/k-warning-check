@@ -4,6 +4,12 @@ K-워닝체크의 핵심인 규칙 기반 분석 엔진의 구조, 스코어링 
 
 ---
 
+<p align="center">
+  <img src="../img/KOR/desktop-main-analyzed.png" alt="분석 결과가 반영된 메인 화면" width="54%">
+</p>
+
+---
+
 ## 분석 파이프라인
 
 ```
