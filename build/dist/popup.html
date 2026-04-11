@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>K-워닝체크</title>
+    <style>
+      html,
+      body,
+      #root {
+        width: 420px;
+        height: 960px;
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('kwc-theme') || 'system';
+          var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme:dark)').matches);
+          if (dark) document.documentElement.setAttribute('data-theme','dark');
+        } catch(e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/popup.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill.js">
+    <link rel="modulepreload" crossorigin href="/assets/constants.js">
+    <link rel="modulepreload" crossorigin href="/assets/runtime.js">
+    <link rel="stylesheet" crossorigin href="/assets/runtime.css">
+  </head>
+  <body class="bg-slate-100">
+    <div id="root"></div>
+  </body>
+</html>

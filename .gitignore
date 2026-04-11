@@ -15,6 +15,9 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!build/
+!build/dist/
+!build/dist/**
 main/.desktop-renderer
 mac-app/
 windows-app/

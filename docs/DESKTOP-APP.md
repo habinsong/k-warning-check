@@ -93,12 +93,12 @@ npm run build:mac
 npm run build:windows
 ```
 
-산출물 디렉터리:
+원본 산출물 디렉터리:
 
 - `mac-app/`
 - `windows-app/`
 
-둘 다 Git에는 포함하지 않습니다.
+배포용 복사본은 루트 `build/mac/`, `build/windows/`로 정리합니다.
 
 ---
 

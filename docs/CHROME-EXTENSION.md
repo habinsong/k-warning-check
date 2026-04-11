@@ -98,7 +98,7 @@ Codex 관련 메시지는 Windows에서 오류로 종료됩니다.
 npm run build:extension
 ```
 
-결과물은 `dist/`에 생성되며 Git에는 포함하지 않습니다.
+원본 결과물은 `dist/`에 생성됩니다. 저장소에 함께 둘 배포 복사본이 필요하면 `build/dist/`로 정리합니다.
 
 ---
 

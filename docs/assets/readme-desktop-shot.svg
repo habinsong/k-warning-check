@@ -1,0 +1,47 @@
+<svg width="1240" height="860" viewBox="0 0 1240 860" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1240" height="860" rx="36" fill="#E2E8F0"/>
+  <rect x="48" y="44" width="1144" height="772" rx="28" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <rect x="48" y="44" width="1144" height="74" rx="28" fill="#0F172A"/>
+  <circle cx="92" cy="81" r="8" fill="#FB7185"/>
+  <circle cx="120" cy="81" r="8" fill="#FBBF24"/>
+  <circle cx="148" cy="81" r="8" fill="#4ADE80"/>
+  <text x="184" y="89" fill="#E2E8F0" font-family="Arial, sans-serif" font-size="20" font-weight="700">K-WarningCheck Desktop</text>
+  <rect x="84" y="154" width="240" height="620" rx="24" fill="#F1F5F9"/>
+  <text x="116" y="204" fill="#0F172A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Workspace</text>
+  <rect x="116" y="230" width="176" height="42" rx="21" fill="#DBEAFE"/>
+  <text x="154" y="257" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="17" font-weight="700">Quick analysis</text>
+  <rect x="116" y="288" width="176" height="42" rx="21" fill="#ECFCCB"/>
+  <text x="164" y="315" fill="#3F6212" font-family="Arial, sans-serif" font-size="17" font-weight="700">History</text>
+  <rect x="116" y="346" width="176" height="42" rx="21" fill="#FFF7ED"/>
+  <text x="162" y="373" fill="#9A3412" font-family="Arial, sans-serif" font-size="17" font-weight="700">Providers</text>
+  <text x="116" y="448" fill="#475569" font-family="Arial, sans-serif" font-size="18" font-weight="700">Signals in focus</text>
+  <text x="116" y="486" fill="#64748B" font-family="Arial, sans-serif" font-size="17">• urgency and pressure wording</text>
+  <text x="116" y="516" fill="#64748B" font-family="Arial, sans-serif" font-size="17">• phishing-style reset pages</text>
+  <text x="116" y="546" fill="#64748B" font-family="Arial, sans-serif" font-size="17">• AI-heavy certainty claims</text>
+  <rect x="356" y="154" width="796" height="232" rx="24" fill="#0F172A"/>
+  <text x="400" y="206" fill="#94A3B8" font-family="Arial, sans-serif" font-size="20">Current check</text>
+  <text x="400" y="284" fill="#F8FAFC" font-family="Georgia, serif" font-size="64" font-weight="700">Limited-time refund page</text>
+  <text x="400" y="332" fill="#CBD5E1" font-family="Arial, sans-serif" font-size="24">Domain mismatch, urgency framing, and repeated trust badges pushed risk upward.</text>
+  <rect x="936" y="186" width="160" height="48" rx="24" fill="#7C2D12"/>
+  <text x="977" y="217" fill="#FED7AA" font-family="Arial, sans-serif" font-size="19" font-weight="700">83 high risk</text>
+  <rect x="356" y="412" width="382" height="168" rx="24" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="392" y="458" fill="#0F172A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Signal breakdown</text>
+  <rect x="392" y="484" width="300" height="14" rx="7" fill="#E2E8F0"/>
+  <rect x="392" y="484" width="244" height="14" rx="7" fill="#F97316"/>
+  <text x="392" y="530" fill="#475569" font-family="Arial, sans-serif" font-size="18">Phishing indicators</text>
+  <text x="634" y="530" fill="#0F172A" font-family="Arial, sans-serif" font-size="18" font-weight="700">81%</text>
+  <text x="392" y="562" fill="#475569" font-family="Arial, sans-serif" font-size="18">AI-style persuasion</text>
+  <text x="634" y="562" fill="#0F172A" font-family="Arial, sans-serif" font-size="18" font-weight="700">68%</text>
+  <rect x="770" y="412" width="382" height="168" rx="24" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="806" y="458" fill="#0F172A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Provider routing</text>
+  <rect x="806" y="486" width="140" height="38" rx="19" fill="#DBEAFE"/>
+  <text x="852" y="511" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="16" font-weight="700">Gemini</text>
+  <rect x="956" y="486" width="116" height="38" rx="19" fill="#ECFCCB"/>
+  <text x="995" y="511" fill="#3F6212" font-family="Arial, sans-serif" font-size="16" font-weight="700">Groq</text>
+  <text x="806" y="556" fill="#475569" font-family="Arial, sans-serif" font-size="18">Windows에서는 Codex UI와 연결 경로를 숨깁니다.</text>
+  <rect x="356" y="604" width="796" height="170" rx="24" fill="#FFFFFF" stroke="#CBD5E1"/>
+  <text x="392" y="650" fill="#0F172A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Why the score moved</text>
+  <text x="392" y="694" fill="#475569" font-family="Arial, sans-serif" font-size="20">1. Link label and actual hostname disagree.</text>
+  <text x="392" y="726" fill="#475569" font-family="Arial, sans-serif" font-size="20">2. Countdown and scarcity language amplify pressure.</text>
+  <text x="392" y="758" fill="#475569" font-family="Arial, sans-serif" font-size="20">3. Screenshot OCR confirms the same message across variants.</text>
+</svg>
