@@ -26,7 +26,8 @@ K-워닝체크의 핵심인 규칙 기반 분석 엔진의 구조, 스코어링 
   ├─ calculateWarningScore()  가중치 합산 → 등급 산출
   ├─ classifySignals()        13가지 분석 유형 분류
   ├─ highlightEvidence()      증거 문장 추출
-  └─ generateExplanation()    요약, 설명, 권장 조치 생성
+  ├─ generateExplanation()    요약, 설명, 권장 조치 생성
+  └─ analyzeRisk()            선택한 LLM 1회 호출로 설명·근거 보강
 ```
 
 ---
@@ -258,6 +259,32 @@ type AnalysisType =
 - **warning.or.kr** (전기통신금융사기 예방)
 - **금융감독원** 금융사기 경고
 - **경찰청** 사이버수사 기준
+
+---
+
+## LLM 보조 단계 (`main/src/modules/analyzer/analyzeInput.ts`)
+
+로컬 엔진이 먼저 점수, 등급, 유형을 확정한 뒤에만 LLM 보조 단계를 실행합니다.
+
+원칙:
+
+- 분석 1회당 선택한 provider 1개만 호출
+- 원격 호출은 `analyzeRisk` 1회만 사용
+- 점수와 유형은 LLM이 바꾸지 않음
+- LLM은 `summaryOverrideText`, `llmAnalysis`, 선택적 최신성 코멘트만 채움
+
+저장 결과:
+
+- `providerUsage`: 호출 provider, 성공 여부, 소요 시간
+- `llmAnalysis.responseText`: 실제 응답 전문
+- `llmAnalysis.evidence`: 원문 인용 근거
+- `webFreshnessVerification`: 지원 경로에서만 최신성 코멘트 저장
+
+현재 최신성 경로:
+
+- Gemini: 같은 `analyzeRisk` 호출 안에서 최신성 코멘트까지 처리 가능
+- Groq: 단일 호출 모드에서는 최신성 검증을 건너뛰고 상태만 남김
+- Codex: 웹 최신성 검증 미지원
 - **KISA** 피싱 탐지 가이드라인
 
 기준점 매칭 시 결과에 `matchedBaselines` 배열로 포함되어 공신력을 높입니다.

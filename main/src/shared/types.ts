@@ -214,11 +214,23 @@ export interface RuntimeCapabilities {
   supportsCodex: boolean
 }
 
+export interface LlmAnalysis {
+  provider: Exclude<ProviderKind, 'local'>
+  status: 'success' | 'failed' | 'skipped'
+  durationMs: number
+  responseText: string
+  evidence: string[]
+  freshnessNote?: string
+  error?: string
+}
+
 export interface ProviderUsage {
   provider: ProviderKind
-  operations: Array<'summarize' | 'refineExplanation' | 'assistOcr' | 'verifyFreshness'>
+  operations: Array<'analyzeRisk'>
   success: boolean
+  durationMs?: number
   error?: string
+  responsePreview?: string
 }
 
 export interface StoredAnalysisRecord {
@@ -227,6 +239,7 @@ export interface StoredAnalysisRecord {
   input: AnalysisInput
   result: AnalysisResult
   ocrText?: string
+  llmAnalysis?: LlmAnalysis
   providerUsage: ProviderUsage[]
 }
 

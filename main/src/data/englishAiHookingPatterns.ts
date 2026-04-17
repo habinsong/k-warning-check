@@ -200,4 +200,38 @@ export const ENGLISH_AI_HOOKING_PATTERNS: Record<string, EnglishAiHookingPattern
     weakPatterns: [/\byou should buy this\b/iu, /\byou should copy this setup\b/iu, /\binstall it right now\b/iu],
     strongPatterns: [/\binstall it right now\b/iu],
   },
+  'ai-hook-101': {
+    weakPatterns: [/\bmoreover\b/iu, /\bfurthermore\b/iu, /\badditionally\b/iu, /\bconsequently\b/iu],
+    strongPatterns: [/\bmoreover\b.*\bfurthermore\b/iu, /\badditionally\b.*\bmoreover\b/iu],
+  },
+  'ai-hook-102': {
+    weakPatterns: [/\band the best part\?\b/iu, /\bwant to know the secret\?\b/iu, /\bwhat if i told you\b/iu],
+    strongPatterns: [/\band the best part\?\b/iu],
+  },
+  'ai-hook-103': {
+    weakPatterns: [
+      /\binterestingly\b/iu,
+      /\bnotably\b/iu,
+      /\bit is worth noting\b/iu,
+      /\bstrikingly\b/iu,
+      /\bremarkably\b/iu,
+    ],
+    strongPatterns: [/\binterestingly\b.*\bnotably\b/iu],
+  },
+  'ai-hook-104': {
+    weakPatterns: [/\bvibe cod(?:e|ing)\b/iu, /\bno.?code\b.*\b(?:saas|startup)\b/iu],
+    strongPatterns: [/\bvibe cod(?:e|ing)\b.*\b(?:revolution|ship|done)\b/iu],
+  },
+  'ai-hook-105': {
+    weakPatterns: [/\bprompt\b.*\b(?:income|revenue|money)\b/iu, /\bprompt engineering\b.*\b\$\d+/iu],
+    strongPatterns: [/\bprompt\b.*\b(?:income|revenue)\b/iu],
+  },
+  'ai-hook-106': {
+    weakPatterns: [/\bnobody is talking about\b/iu, /\bthe secret that\b/iu, /\bfull breakdown\b/iu],
+    strongPatterns: [/\bnobody is talking about\b/iu],
+  },
+  'ai-hook-107': {
+    weakPatterns: [/\bchanged my life\b/iu, /\bmy life will never be the same\b/iu, /\blife-changing\b/iu],
+    strongPatterns: [/\bchanged my life\b/iu],
+  },
 }

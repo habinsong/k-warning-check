@@ -29,12 +29,25 @@ const DIMENSION_LABELS: Array<[keyof AnalysisDimensionScores, string]> = [
   ['hookingStyle', '후킹 문체'],
 ]
 
+function renderProviderName(provider: NonNullable<StoredAnalysisRecord['llmAnalysis']>['provider']) {
+  if (provider === 'gemini') {
+    return 'Gemini'
+  }
+
+  if (provider === 'groq') {
+    return 'Groq'
+  }
+
+  return 'Codex'
+}
+
 export function RecordCard({ record, locale = 'ko' }: RecordCardProps) {
   const neutralResult = isNeutralAnalysisResult(record.result)
   const matchedBaselines = record.result.matchedBaselines ?? []
   const dimensionScores = record.result.dimensionScores
   const aiHookingChecklist = record.result.aiHookingChecklist
   const webFreshnessVerification = record.result.webFreshnessVerification
+  const llmAnalysis = record.llmAnalysis
   const renderedSummary = renderAnalysisSummary(record.result, locale)
   const conciseActions = [...new Set(renderRecommendedActions(record.result, locale).map((action) => action.trim()).filter(Boolean))]
     .slice(0, 2)
@@ -130,6 +143,41 @@ export function RecordCard({ record, locale = 'ko' }: RecordCardProps) {
                   {reference.title}
                 </a>
               ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {llmAnalysis ? (
+        <div className="mt-4 border-t border-[#d6d9e2] pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-[#6c7488]">{locale === 'ko' ? 'LLM 분석' : 'LLM Analysis'}</div>
+            <div className="text-[11px] font-medium text-[#6d78d6]">
+              {renderProviderName(llmAnalysis.provider)} · {llmAnalysis.durationMs}ms
+            </div>
+          </div>
+          {llmAnalysis.status === 'success' && llmAnalysis.responseText.trim() ? (
+            <div className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-[#edf0f6] bg-[#f8f9fb] px-3 py-3 text-sm leading-6 text-[#27304d]">
+              {llmAnalysis.responseText}
+            </div>
+          ) : null}
+          {llmAnalysis.evidence.length > 0 ? (
+            <ul className="mt-2 space-y-1 text-xs leading-5 text-[#4e5971]">
+              {llmAnalysis.evidence.map((item) => (
+                <li key={item} className="break-words">
+                  • {item}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {llmAnalysis.freshnessNote ? (
+            <div className="mt-2 break-words text-xs leading-5 text-[#5a6382]">
+              {llmAnalysis.freshnessNote}
+            </div>
+          ) : null}
+          {llmAnalysis.status !== 'success' && llmAnalysis.error ? (
+            <div className="mt-2 break-words rounded-lg border border-[#f1d6d6] bg-[#fff7f7] px-3 py-2 text-xs leading-5 text-[#a14a4a]">
+              {llmAnalysis.error}
             </div>
           ) : null}
         </div>

@@ -35,7 +35,7 @@ fn default_provider_state() -> Value {
         "remoteExplanationEnabled": false,
         "remoteOcrEnabled": false,
         "gemini": {
-            "model": "gemini-3.1-pro-preview",
+            "model": "gemini-3.1-flash-lite-preview",
             "endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
             "apiKeyRetention": "7d",
             "hasSecret": false,
@@ -44,7 +44,7 @@ fn default_provider_state() -> Value {
             "lastValidationAt": null
         },
         "groq": {
-            "model": "groq/compound",
+            "model": "groq/compound-mini",
             "endpoint": "https://api.groq.com/openai/v1",
             "apiKeyRetention": "7d",
             "enabledTools": ["web_search", "code_interpreter", "visit_website", "browser_automation", "wolfram_alpha"],

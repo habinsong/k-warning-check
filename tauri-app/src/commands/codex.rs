@@ -272,16 +272,23 @@ async fn preferred_workspace_root() -> PathBuf {
 
 async fn ensure_runtime_bridge_script() -> Result<PathBuf, String> {
     let runtime_script = kwc_data_dir().join("runtime/codex-bridge.mjs");
-    if !runtime_script.exists() {
-        if let Some(parent) = runtime_script.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| format!("Codex 브리지 런타임 디렉터리 생성 실패: {e}"))?;
-        }
+    if let Some(parent) = runtime_script.parent() {
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Codex 브리지 런타임 디렉터리 생성 실패: {e}"))?;
+    }
+
+    let should_write = match fs::read_to_string(&runtime_script).await {
+        Ok(existing) => existing != EMBEDDED_BRIDGE_SCRIPT,
+        Err(_) => true,
+    };
+
+    if should_write {
         fs::write(&runtime_script, EMBEDDED_BRIDGE_SCRIPT)
             .await
             .map_err(|e| format!("Codex 브리지 스크립트 준비 실패: {e}"))?;
     }
+
     Ok(runtime_script)
 }
 
@@ -360,7 +367,7 @@ pub async fn kwc_codex_start_bridge(force: Option<bool>) -> Result<Value, String
         .env("CODEX_BIN", &codex)
         .env(
             "CODEX_BRIDGE_ALLOWED_ORIGINS",
-            "chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg,null,http://localhost:4173",
+            "chrome-extension://lmacmoffmdjjabkdkabfpfefdamlkcgg,null,http://localhost:4173,tauri://localhost,https://tauri.localhost,http://tauri.localhost",
         )
         .env(
             "CODEX_BRIDGE_WORKSPACE_ROOT",
@@ -381,9 +388,20 @@ pub async fn kwc_codex_start_bridge(force: Option<bool>) -> Result<Value, String
         .map_err(|e| format!("브릿지 시작 실패: {e}"))?;
     drop(child);
 
-    tokio::time::sleep(Duration::from_millis(600)).await;
+    let running = {
+        let deadline = std::time::Instant::now() + Duration::from_secs(8);
+        loop {
+            if is_bridge_open() {
+                break true;
+            }
 
-    let running = is_bridge_open();
+            if std::time::Instant::now() >= deadline {
+                break false;
+            }
+
+            tokio::time::sleep(Duration::from_millis(350)).await;
+        }
+    };
     let status = codex_status_raw().await.unwrap_or_else(|_| "미확인".into());
 
     Ok(json!({

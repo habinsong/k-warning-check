@@ -184,7 +184,11 @@ async function resolveBridgeScriptExecutable() {
   }
 
   await mkdir(path.dirname(RUNTIME_BRIDGE_SCRIPT_PATH), { recursive: true })
-  await writeFile(RUNTIME_BRIDGE_SCRIPT_PATH, await readFile(BRIDGE_SCRIPT, 'utf8'), 'utf8')
+  const source = await readFile(BRIDGE_SCRIPT, 'utf8')
+  const existing = await readFile(RUNTIME_BRIDGE_SCRIPT_PATH, 'utf8').catch(() => '')
+  if (existing !== source) {
+    await writeFile(RUNTIME_BRIDGE_SCRIPT_PATH, source, 'utf8')
+  }
   return RUNTIME_BRIDGE_SCRIPT_PATH
 }
 

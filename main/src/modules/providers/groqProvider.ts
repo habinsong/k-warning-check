@@ -1,5 +1,6 @@
-import { BaseProviderAdapter, extractJsonObject } from '@/modules/providers/adapter'
-import type { GroqToolId, WebFreshnessVerification } from '@/shared/types'
+import { BaseProviderAdapter, type ProviderRiskContext } from '@/modules/providers/adapter'
+import type { ProviderRiskAnalysis } from '@/modules/providers/adapter'
+import type { ProviderState } from '@/shared/types'
 
 interface GroqChatResponse {
   choices?: Array<{
@@ -23,11 +24,11 @@ const OFFICIAL_SOURCE_DOMAINS = [
   'developers.googleblog.com',
 ]
 
-function isCompoundModel(model: string) {
+export function isCompoundModel(model: string) {
   return model === 'groq/compound' || model === 'groq/compound-mini'
 }
 
-function isGptOssModel(model: string) {
+export function isGptOssModel(model: string) {
   return model === 'openai/gpt-oss-120b' || model === 'openai/gpt-oss-20b'
 }
 
@@ -38,18 +39,83 @@ function supportsVision(model: string) {
   )
 }
 
-function gptOssTools(enabledTools: GroqToolId[]) {
-  const tools: Array<{ type: 'browser_search' | 'code_interpreter' }> = []
+function compactSourcePreview(rawText: string) {
+  const normalized = rawText.replace(/\s+/g, ' ').trim()
+  return normalized.length > 125 ? `${normalized.slice(0, 125)}...` : normalized
+}
 
-  if (enabledTools.includes('web_search')) {
-    tools.push({ type: 'browser_search' })
+function compactEvidenceCandidate(rawText: string) {
+  const normalized = rawText.replace(/\s+/g, ' ').trim()
+  return normalized.length > 44 ? `${normalized.slice(0, 44)}...` : normalized
+}
+
+function buildEvidenceCandidates(context: ProviderRiskContext) {
+  const candidates = context.result?.evidenceSentences?.slice(0, 2) ?? []
+  return candidates
+    .map((candidate) => `"${compactEvidenceCandidate(candidate)}"`)
+    .join(' | ')
+}
+
+export function buildGroqRiskAnalysisRequest(
+  state: ProviderState,
+  context: ProviderRiskContext,
+): {
+  prompt: string
+  shouldUseWebSearch: boolean
+} {
+  const rawText = (context.rawText ?? '').trim()
+  const isImageOnly = !rawText && Boolean(context.input.imageDataUrl)
+  const shouldUseWebSearch = context.webSearchEnabled && !context.input.imageDataUrl
+  const result = context.result
+  const evidenceCandidates = buildEvidenceCandidates(context)
+  const responseShape = isImageOnly
+    ? '{"summary":"1문장","responseText":"최대 2문장","evidence":["원문 인용 1","원문 인용 2"],"extractedText":"이미지에서 읽은 텍스트"}'
+    : shouldUseWebSearch
+      ? '{"summary":"1문장","responseText":"최대 2문장","evidence":["원문 인용 1","원문 인용 2"],"freshnessNote":"선택 1문장"}'
+      : '{"summary":"1문장","responseText":"최대 2문장","evidence":["원문 인용 1","원문 인용 2"]}'
+  const lines = [
+    state.uiLocale === 'en'
+      ? 'Return valid JSON only in English.'
+      : '반드시 한국어 JSON만 반환하세요.',
+    result
+      ? state.uiLocale === 'en'
+        ? `Local result is fixed: score ${result.score}, grade ${result.grade}, type ${result.primaryType}. Do not change it.`
+        : `로컬 판정은 고정입니다: 점수 ${result.score}, 등급 ${result.grade}, 유형 ${result.primaryType}. 바꾸지 마세요.`
+      : state.uiLocale === 'en'
+        ? 'No local score is available yet. If this is an image, read visible text first.'
+        : '아직 로컬 판정이 없습니다. 이미지라면 먼저 보이는 글자를 읽으세요.',
+    state.uiLocale === 'en'
+      ? 'Do not paraphrase the ad copy. Explain the risk signals critically.'
+      : '광고 문구를 따라 쓰지 말고, 위험 신호를 비판적으로 설명하세요.',
+    state.uiLocale === 'en'
+      ? 'Keep responseText to 2 short critical sentences max. Evidence must be 2 short direct quotes from the source.'
+      : 'responseText는 최대 2개의 짧은 비판 문장으로 쓰고, evidence는 원문에서 직접 발췌한 짧은 인용 2개만 쓰세요.',
+    state.uiLocale === 'en'
+      ? `Response format: ${responseShape}`
+      : `반환 형식: ${responseShape}`,
+    result?.signals?.length
+      ? state.uiLocale === 'en'
+        ? `Key signal: ${result.signals[0]}`
+        : `핵심 신호: ${result.signals[0]}`
+      : '',
+    evidenceCandidates
+      ? state.uiLocale === 'en'
+        ? `Quote candidates: ${evidenceCandidates}`
+        : `인용 후보: ${evidenceCandidates}`
+      : '',
+    isImageOnly
+      ? state.uiLocale === 'en'
+        ? 'This is an image-only input. Put the visible text into extractedText.'
+        : '이미지 전용 입력입니다. 보이는 글자를 extractedText에 넣으세요.'
+      : state.uiLocale === 'en'
+        ? `Source: ${compactSourcePreview(rawText)}`
+        : `원문: ${compactSourcePreview(rawText)}`,
+  ].filter(Boolean)
+
+  return {
+    prompt: lines.join('\n'),
+    shouldUseWebSearch,
   }
-
-  if (enabledTools.includes('code_interpreter')) {
-    tools.push({ type: 'code_interpreter' })
-  }
-
-  return tools
 }
 
 export class GroqProvider extends BaseProviderAdapter {
@@ -60,49 +126,77 @@ export class GroqProvider extends BaseProviderAdapter {
   }
 
   supportsWebFreshnessCheck() {
-    const model = this.state.groq.model.trim() || 'groq/compound'
+    const model = this.state.groq.model.trim() || 'groq/compound-mini'
     return isCompoundModel(model) || isGptOssModel(model)
   }
 
-  async summarize(prompt: string) {
+  async analyzeRisk(context: ProviderRiskContext) {
     if (!this.isConfigured()) {
       throw new Error('Groq API 키가 설정되지 않았습니다.')
     }
 
-    const model = this.state.groq.model.trim() || 'groq/compound'
+    const selectedModel = this.state.groq.model.trim() || 'groq/compound-mini'
+    const request = buildGroqRiskAnalysisRequest(this.state, {
+      ...context,
+      webSearchEnabled: context.webSearchEnabled && !context.input.imageDataUrl,
+    })
+    const useVision = Boolean(context.input.imageDataUrl)
+    const model = useVision
+      ? supportsVision(selectedModel)
+        ? selectedModel
+        : 'meta-llama/llama-4-scout-17b-16e-instruct'
+      : selectedModel
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.secrets.groqApiKey!}`,
       'Content-Type': 'application/json',
     }
+    const messageContent = useVision
+      ? [
+          {
+            type: 'text',
+            text: request.prompt,
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: context.input.imageDataUrl,
+            },
+          },
+        ]
+      : request.prompt
     const body: Record<string, unknown> = {
       model,
       messages: [
         {
-          role: 'system',
-          content:
-            this.state.uiLocale === 'en'
-              ? 'You are K-WarningCheck’s explanation assistant. Keep the judgment intact and answer in exactly one English sentence.'
-              : 'K-워닝체크의 보조 요약기입니다. 판정 기준을 바꾸지 말고 한국어 1문장으로만 답하세요.',
-        },
-        {
           role: 'user',
-          content: prompt,
+          content: messageContent,
         },
       ],
       temperature: 0.1,
+      max_completion_tokens: request.shouldUseWebSearch || useVision ? 700 : 240,
+      response_format: { type: 'json_object' },
     }
 
     if (isCompoundModel(model)) {
-      headers['Groq-Model-Version'] = 'latest'
       body.compound_custom = {
         tools: {
-          enabled_tools: this.state.groq.enabledTools,
+          enabled_tools: request.shouldUseWebSearch ? ['web_search'] : [],
         },
       }
-    } else if (isGptOssModel(model)) {
-      const tools = gptOssTools(this.state.groq.enabledTools)
-      if (tools.length > 0) {
-        body.tools = tools
+    }
+
+    if (request.shouldUseWebSearch) {
+      if (isCompoundModel(model)) {
+        headers['Groq-Model-Version'] = 'latest'
+        body.search_settings = {
+          include_domains: OFFICIAL_SOURCE_DOMAINS,
+        }
+      } else if (isGptOssModel(model)) {
+        body.tools = [{ type: 'browser_search' }]
+        body.tool_choice = 'required'
+        body.search_settings = {
+          include_domains: OFFICIAL_SOURCE_DOMAINS,
+        }
       }
     }
 
@@ -110,196 +204,21 @@ export class GroqProvider extends BaseProviderAdapter {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(request.shouldUseWebSearch ? 30_000 : 15_000),
     })
 
     const data = (await response.json()) as GroqChatResponse
 
     if (!response.ok) {
-      throw new Error(data.error?.message ?? `Groq 호출 실패: ${response.status}`)
+      throw new Error(data.error?.message ?? `Groq 분석 실패: ${response.status}`)
     }
 
-    const text = data.choices?.[0]?.message?.content
+    const text = data.choices?.[0]?.message?.content?.trim()
 
-    if (!text?.trim()) {
-      throw new Error('Groq 응답을 해석할 수 없습니다.')
+    if (!text) {
+      throw new Error('Groq 분석 응답이 비어 있습니다.')
     }
 
-    return text.trim()
-  }
-
-  async extractTextFromImage(imageDataUrl: string) {
-    if (!this.isConfigured()) {
-      throw new Error('Groq API 키가 설정되지 않았습니다.')
-    }
-
-    const selectedModel = this.state.groq.model.trim() || 'groq/compound'
-    const model = supportsVision(selectedModel)
-      ? selectedModel
-      : 'meta-llama/llama-4-scout-17b-16e-instruct'
-    const response = await fetch(`${this.state.groq.endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.secrets.groqApiKey!}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: [
-                  this.state.uiLocale === 'en'
-                    ? 'Read this image like OCR and extract the visible text as faithfully as possible.'
-                    : '이 이미지를 OCR처럼 읽고 보이는 글자를 한국어로 그대로 추출해 주세요.',
-                  this.state.uiLocale === 'en'
-                    ? 'Return text only, with no explanation or summary.'
-                    : '설명, 요약, 해설 없이 텍스트만 반환하세요.',
-                  this.state.uiLocale === 'en'
-                    ? 'Preserve the original line breaks as much as possible.'
-                    : '줄바꿈은 원문 구조를 최대한 유지하세요.',
-                ].join(' '),
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageDataUrl,
-                },
-              },
-            ],
-          },
-        ],
-        temperature: 0,
-        max_completion_tokens: 2048,
-      }),
-      signal: AbortSignal.timeout(20_000),
-    })
-
-    const data = (await response.json()) as GroqChatResponse
-
-    if (!response.ok) {
-      throw new Error(
-        data.error?.message ??
-          `Groq 이미지 인식 실패: ${response.status}${model !== selectedModel ? ` (${model} 사용)` : ''}`,
-      )
-    }
-
-    const text = data.choices?.[0]?.message?.content
-
-    if (!text?.trim()) {
-      throw new Error('Groq 이미지 인식 응답이 비어 있습니다.')
-    }
-
-    return text.trim()
-  }
-
-  async verifyFreshness(text: string): Promise<WebFreshnessVerification> {
-    if (!this.isConfigured()) {
-      throw new Error('Groq API 키가 설정되지 않았습니다.')
-    }
-
-    const model = this.state.groq.model.trim() || 'groq/compound'
-
-    if (!this.supportsWebFreshnessCheck()) {
-      throw new Error('현재 선택한 Groq 모델은 웹 검색 최신성 검증을 지원하지 않습니다.')
-    }
-
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.secrets.groqApiKey!}`,
-      'Content-Type': 'application/json',
-    }
-    const body: Record<string, unknown> = {
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: [
-            this.state.uiLocale === 'en'
-              ? 'You verify freshness claims about AI models and services.'
-              : '당신은 AI 모델·서비스 최신성 검증기입니다.',
-            this.state.uiLocale === 'en'
-              ? 'You must use web search and prioritize official documentation, official release notes, and official product pages.'
-              : '반드시 웹 검색을 사용해 공식 문서, 공식 릴리스 노트, 공식 제품 페이지를 우선 확인하세요.',
-            this.state.uiLocale === 'en' ? 'Return JSON only.' : '반드시 JSON만 반환하세요.',
-          ].join(' '),
-        },
-        {
-          role: 'user',
-          content: [
-            this.state.uiLocale === 'en'
-              ? 'Verify only claims about AI model names, versions, support status, deprecation, or whether they are currently flagship models.'
-              : '다음 문장에서 AI 모델, 버전, 지원 상태, deprecated 여부, 현재 주력 모델 여부와 관련된 주장만 검증하세요.',
-            this.state.uiLocale === 'en'
-              ? 'Use confirmed_outdated or confirmed_current only when the claim is clearly verified. Otherwise use inconclusive.'
-              : '확실히 확인된 경우에만 confirmed_outdated 또는 confirmed_current를 사용하고, 애매하면 inconclusive를 사용하세요.',
-            this.state.uiLocale === 'en'
-              ? 'Return only the JSON schema below.'
-              : '반드시 아래 JSON 스키마만 반환하세요.',
-            this.state.uiLocale === 'en'
-              ? '{"status":"confirmed_outdated|confirmed_current|inconclusive","summary":"one short English sentence","checkedClaims":["..."],"references":[{"title":"...","url":"https://..."}]}'
-              : '{"status":"confirmed_outdated|confirmed_current|inconclusive","summary":"짧은 한국어 1문장","checkedClaims":["..."],"references":[{"title":"...","url":"https://..."}]}',
-            '',
-            text.slice(0, 2400),
-          ].join('\n'),
-        },
-      ],
-      temperature: 0,
-    }
-
-    if (isCompoundModel(model)) {
-      headers['Groq-Model-Version'] = 'latest'
-      body.compound_custom = {
-        tools: {
-          enabled_tools: ['web_search'],
-        },
-      }
-      body.search_settings = {
-        include_domains: OFFICIAL_SOURCE_DOMAINS,
-      }
-    } else {
-      body.tools = [{ type: 'browser_search' }]
-      body.tool_choice = 'required'
-      body.search_settings = {
-        include_domains: OFFICIAL_SOURCE_DOMAINS,
-      }
-    }
-
-    const response = await fetch(`${this.state.groq.endpoint}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15_000),
-    })
-
-    const data = (await response.json()) as GroqChatResponse
-
-    if (!response.ok) {
-      throw new Error(data.error?.message ?? `Groq 최신성 검증 실패: ${response.status}`)
-    }
-
-    const content = data.choices?.[0]?.message?.content?.trim()
-
-    if (!content) {
-      throw new Error('Groq 최신성 검증 응답이 비어 있습니다.')
-    }
-
-    const parsed = JSON.parse(extractJsonObject(content)) as WebFreshnessVerification
-
-    return {
-      status: parsed.status ?? 'inconclusive',
-      messageKey: 'provider',
-      providerSummaryLocale: this.state.uiLocale,
-      providerSummaryText:
-        parsed.summary?.trim() ||
-        (this.state.uiLocale === 'en'
-          ? 'The web freshness result could not be interpreted.'
-          : '웹 검색 기반 최신성 검증 결과를 해석하지 못했습니다.'),
-      summary: parsed.summary?.trim() || '웹 검색 기반 최신성 검증 결과를 해석하지 못했습니다.',
-      checkedClaims: Array.isArray(parsed.checkedClaims) ? parsed.checkedClaims.slice(0, 5) : [],
-      references: Array.isArray(parsed.references) ? parsed.references.slice(0, 3) : [],
-    }
+    return this.parseRiskAnalysisResponse(text, context) satisfies ProviderRiskAnalysis
   }
 }

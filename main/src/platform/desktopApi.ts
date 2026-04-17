@@ -42,7 +42,7 @@ export interface DesktopCodexLoginResult {
 }
 
 export type DesktopProviderBridgeKind = 'gemini' | 'groq'
-export type DesktopProviderBridgeOperation = 'summarize' | 'extractTextFromImage' | 'verifyFreshness'
+export type DesktopProviderBridgeOperation = 'analyzeRisk'
 
 export interface DesktopApi {
   history: {

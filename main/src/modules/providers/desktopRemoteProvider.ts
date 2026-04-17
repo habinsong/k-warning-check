@@ -1,5 +1,5 @@
-import { BaseProviderAdapter } from '@/modules/providers/adapter'
-import type { WebFreshnessVerification } from '@/shared/types'
+import { BaseProviderAdapter, type ProviderRiskContext } from '@/modules/providers/adapter'
+import { buildGroqRiskAnalysisRequest } from '@/modules/providers/groqProvider'
 
 function isDesktopProviderBridgeAvailable() {
   return (
@@ -32,22 +32,15 @@ export class DesktopGeminiProvider extends BaseProviderAdapter {
     return true
   }
 
-  summarize(prompt: string) {
-    return window.kwcDesktop.providerBridge.invoke<string>('gemini', 'summarize', {
-      prompt,
+  async analyzeRisk(context: ProviderRiskContext) {
+    const request = this.buildRiskAnalysisRequest(context)
+    const rawText = await window.kwcDesktop.providerBridge.invoke<string>('gemini', 'analyzeRisk', {
+      prompt: request.prompt,
+      imageDataUrl: context.input.imageDataUrl,
+      useWebSearch: request.shouldUseWebSearch,
     })
-  }
 
-  extractTextFromImage(imageDataUrl: string) {
-    return window.kwcDesktop.providerBridge.invoke<string>('gemini', 'extractTextFromImage', {
-      imageDataUrl,
-    })
-  }
-
-  verifyFreshness(text: string): Promise<WebFreshnessVerification> {
-    return window.kwcDesktop.providerBridge.invoke<WebFreshnessVerification>('gemini', 'verifyFreshness', {
-      text,
-    })
+    return this.parseRiskAnalysisResponse(rawText, context)
   }
 }
 
@@ -67,22 +60,18 @@ export class DesktopGroqProvider extends BaseProviderAdapter {
     return isCompoundModel(model) || isGptOssModel(model)
   }
 
-  summarize(prompt: string) {
-    return window.kwcDesktop.providerBridge.invoke<string>('groq', 'summarize', {
-      prompt,
+  async analyzeRisk(context: ProviderRiskContext) {
+    const request = buildGroqRiskAnalysisRequest(this.state, {
+      ...context,
+      webSearchEnabled: context.webSearchEnabled && !context.input.imageDataUrl,
     })
-  }
+    const rawText = await window.kwcDesktop.providerBridge.invoke<string>('groq', 'analyzeRisk', {
+      prompt: request.prompt,
+      imageDataUrl: context.input.imageDataUrl,
+      useWebSearch: request.shouldUseWebSearch,
+    })
 
-  extractTextFromImage(imageDataUrl: string) {
-    return window.kwcDesktop.providerBridge.invoke<string>('groq', 'extractTextFromImage', {
-      imageDataUrl,
-    })
-  }
-
-  verifyFreshness(text: string): Promise<WebFreshnessVerification> {
-    return window.kwcDesktop.providerBridge.invoke<WebFreshnessVerification>('groq', 'verifyFreshness', {
-      text,
-    })
+    return this.parseRiskAnalysisResponse(rawText, context)
   }
 }
 

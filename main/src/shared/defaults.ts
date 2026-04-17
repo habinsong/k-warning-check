@@ -11,7 +11,7 @@ export const DEFAULT_PROVIDER_STATE: ProviderState = {
   remoteExplanationEnabled: false,
   remoteOcrEnabled: false,
   gemini: {
-    model: 'gemini-3.1-pro-preview',
+    model: 'gemini-3.1-flash-lite-preview',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
     apiKeyRetention: '7d',
     hasSecret: false,
@@ -20,7 +20,7 @@ export const DEFAULT_PROVIDER_STATE: ProviderState = {
     lastValidationAt: null,
   },
   groq: {
-    model: 'groq/compound',
+    model: 'groq/compound-mini',
     endpoint: 'https://api.groq.com/openai/v1',
     apiKeyRetention: '7d',
     enabledTools: [

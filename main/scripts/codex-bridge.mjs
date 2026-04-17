@@ -341,11 +341,27 @@ const server = createServer(async (request, response) => {
 
     if (request.method === 'POST' && request.url === '/summarize') {
       const body = await readJsonBody(request)
-      const message = await runCodex(body.prompt, resolveWorkspaceRoot(body.workspaceRoot), {
-        model: body.model,
-        reasoningEffort: body.reasoningEffort,
-      })
-      sendJson(request, response, 200, { ok: true, data: { message } })
+      const tempDir = await mkdtemp(path.join(os.tmpdir(), 'kwc-codex-summary-'))
+
+      try {
+        const images = []
+
+        if (body.imageDataUrl) {
+          const { buffer, extension } = parseDataUrl(body.imageDataUrl)
+          const imagePath = path.join(tempDir, `input.${extension}`)
+          await writeFile(imagePath, buffer)
+          images.push(imagePath)
+        }
+
+        const message = await runCodex(body.prompt, resolveWorkspaceRoot(body.workspaceRoot), {
+          model: body.model,
+          reasoningEffort: body.reasoningEffort,
+          images,
+        })
+        sendJson(request, response, 200, { ok: true, data: { message } })
+      } finally {
+        await rm(tempDir, { recursive: true, force: true })
+      }
       return
     }
 

@@ -1,19 +1,15 @@
 import { analyzeText } from '@/modules/analyzer/analyzeText'
-import { GRADE_ORDER } from '@/shared/constants'
-import { getCachedRuntimeCapabilities } from '@/shared/runtimeCapabilities'
+import { createSelectedProvider } from '@/modules/providers/factory'
 import type {
   AnalysisInput,
   AnalysisResult,
-  AnalysisType,
-  ChecklistItem,
+  LlmAnalysis,
   ProviderSecrets,
   ProviderState,
   ProviderUsage,
-  RecommendedActionId,
   StoredAnalysisRecord,
   WebFreshnessVerification,
 } from '@/shared/types'
-import { createConfiguredProviders, createExplanationAssistant } from '@/modules/providers/factory'
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
   return Promise.race([
@@ -24,40 +20,11 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
   ])
 }
 
-const OUTDATED_RELATED_LABELS = new Set(['최신 모델/버전 정보가 아닐 수 있음', '구식 정보 재탕 가능성'])
 const OUTDATED_RELATED_TAGS = new Set(['구식 정보 재탕', '모델 정보 최신성 낮음'])
-const OUTDATED_RELATED_SIGNALS = new Set([
-  '구형 AI 모델명을 현역 추천처럼 제시',
-  '웹 검색 기준 최신성 불일치 확인',
-])
 const KNOWN_MODEL_TERM_PATTERN =
   /\b(?:Claude|GPT|Gemini|Gemma|GLM|Qwen|Llama|Sonnet|Opus|Haiku|DeepSeek|Mistral)\b/i
 const QUOTED_MODEL_NAME_PATTERN = /['"`][A-Z][A-Za-z0-9.+-]{2,}['"`]/i
 const PREVIEW_MODEL_NAME_PATTERN = /\b[A-Z][A-Za-z0-9.+-]{2,}\s+Preview\b/i
-
-function gradeFromScore(score: number) {
-  if (score >= 85) {
-    return '경고' as const
-  }
-
-  if (score >= 70) {
-    return '매우 위험' as const
-  }
-
-  if (score >= 50) {
-    return '위험' as const
-  }
-
-  if (score >= 25) {
-    return '주의' as const
-  }
-
-  return '낮음' as const
-}
-
-function maxGrade(current: AnalysisResult['grade'], next: AnalysisResult['grade']) {
-  return GRADE_ORDER.indexOf(next) > GRADE_ORDER.indexOf(current) ? next : current
-}
 
 function shouldRunWebFreshnessCheck(text: string, result: AnalysisResult) {
   return (
@@ -70,127 +37,145 @@ function shouldRunWebFreshnessCheck(text: string, result: AnalysisResult) {
   )
 }
 
-function pickReplacementPrimaryType(result: AnalysisResult) {
-  const nextPrimary =
-    result.secondaryTypes.find((type) => type !== '구식 모델/최신성 부족') ??
-    ('AI 저품질 후킹글' as AnalysisType)
-  const nextSecondary = [
-    ...new Set([result.primaryType, ...result.secondaryTypes].filter((type) => type !== nextPrimary && type !== '구식 모델/최신성 부족')),
-  ].slice(0, 4)
+function responsePreview(text: string) {
+  const trimmed = text.trim()
+  return trimmed.length > 180 ? `${trimmed.slice(0, 180)}...` : trimmed
+}
 
+function providerTimeoutMs(
+  kind: ProviderUsage['provider'],
+  options: {
+    useWebSearch: boolean
+    hasImage: boolean
+  },
+) {
+  if (kind === 'codex') {
+    return options.hasImage ? 30_000 : 22_000
+  }
+
+  if (options.useWebSearch) {
+    return kind === 'gemini' ? 35_000 : 30_000
+  }
+
+  return options.hasImage ? 24_000 : 20_000
+}
+
+function buildSkippedMessage(providerState: ProviderState) {
+  if (providerState.uiLocale === 'en') {
+    if (providerState.preferredProvider === 'codex') {
+      return 'Codex is not configured, so the LLM analysis was skipped.'
+    }
+
+    if (providerState.preferredProvider === 'gemini') {
+      return 'Gemini is not configured, so the LLM analysis was skipped.'
+    }
+
+    return 'Groq is not configured, so the LLM analysis was skipped.'
+  }
+
+  if (providerState.preferredProvider === 'codex') {
+    return 'Codex 연결이 설정되지 않아 LLM 분석을 건너뛰었습니다.'
+  }
+
+  if (providerState.preferredProvider === 'gemini') {
+    return 'Gemini API 키가 설정되지 않아 LLM 분석을 건너뛰었습니다.'
+  }
+
+  return 'Groq API 키가 설정되지 않아 LLM 분석을 건너뛰었습니다.'
+}
+
+function buildImageProviderRequiredMessage(providerState: ProviderState) {
+  if (providerState.uiLocale === 'en') {
+    if (providerState.preferredProvider === 'codex') {
+      return 'Set up Codex before running image analysis.'
+    }
+
+    if (providerState.preferredProvider === 'gemini') {
+      return 'Save the Gemini API key before running image analysis.'
+    }
+
+    return 'Save the Groq API key before running image analysis.'
+  }
+
+  if (providerState.preferredProvider === 'codex') {
+    return '이미지 분석을 하려면 Codex 연결을 먼저 설정해 주세요.'
+  }
+
+  if (providerState.preferredProvider === 'gemini') {
+    return '이미지 분석을 하려면 Gemini API 키를 먼저 저장해 주세요.'
+  }
+
+  return '이미지 분석을 하려면 Groq API 키를 먼저 저장해 주세요.'
+}
+
+function buildSkippedLlmAnalysis(providerState: ProviderState): LlmAnalysis {
   return {
-    primaryType: nextPrimary,
-    secondaryTypes: nextSecondary,
+    provider: providerState.preferredProvider,
+    status: 'skipped',
+    durationMs: 0,
+    responseText: '',
+    evidence: [],
+    error: buildSkippedMessage(providerState),
   }
 }
 
-function addChecklistItem(result: AnalysisResult, item: ChecklistItem) {
-  if (result.checklist.some((existing) => existing.id === item.id)) {
-    return result.checklist
-  }
-
-  return [...result.checklist, item]
-}
-
-function applyWebFreshnessVerification(
+function applyLlmSummary(
   result: AnalysisResult,
-  verification: WebFreshnessVerification,
+  providerState: ProviderState,
+  summary: string,
 ): AnalysisResult {
-  if (verification.status === 'inconclusive') {
-    return {
-      ...result,
-      webFreshnessVerification: verification,
-    }
+  const nextSummary = summary.trim()
+
+  if (!nextSummary) {
+    return result
   }
-
-  if (verification.status === 'confirmed_current') {
-    const nextScore = Math.max(0, result.score - 8)
-    const nextTypeState =
-      result.primaryType === '구식 모델/최신성 부족'
-        ? pickReplacementPrimaryType(result)
-        : {
-            primaryType: result.primaryType,
-            secondaryTypes: result.secondaryTypes,
-          }
-
-    return {
-      ...result,
-      ...nextTypeState,
-      score: nextScore,
-      grade: gradeFromScore(nextScore),
-      summaryTemplateId: 'freshness_current',
-      summary: verification.summary,
-      aiHookingChecklist: {
-        ...result.aiHookingChecklist,
-        normalizedScore: Math.max(0, result.aiHookingChecklist.normalizedScore - 10),
-        tags: result.aiHookingChecklist.tags.filter((tag) => !OUTDATED_RELATED_TAGS.has(tag)),
-        topFindings: result.aiHookingChecklist.topFindings.filter(
-          (finding) => !OUTDATED_RELATED_LABELS.has(finding.userLabel),
-        ),
-      },
-      checklist: result.checklist.filter(
-        (item) =>
-          !OUTDATED_RELATED_LABELS.has(item.title) &&
-          item.title !== '구형 AI 모델명을 현역 추천처럼 제시' &&
-          item.title !== '웹 검색 기준 최신성 불일치 확인',
-      ),
-      signals: result.signals.filter((signal) => !OUTDATED_RELATED_SIGNALS.has(signal)),
-      dimensionScores: {
-        ...result.dimensionScores,
-        factualityRisk: Math.max(0, result.dimensionScores.factualityRisk - 25),
-      },
-      recommendedActionIds: [
-        'freshness_current_keep_other_checks',
-        ...result.recommendedActionIds.filter(
-          (id) => id !== 'verify_ai_docs' && id !== 'verify_model_claims_and_sources',
-        ),
-      ].slice(0, 4) as RecommendedActionId[],
-      recommendedActions: [
-        '최신성 자체는 웹 검색 기준으로 바로 틀렸다고 보긴 어렵습니다. 다만 과장·비교 왜곡 여부는 따로 보십시오.',
-        ...result.recommendedActions.filter(
-          (action) => !action.includes('모델명') && !action.includes('지원 상태'),
-        ),
-      ].slice(0, 4),
-      webFreshnessVerification: verification,
-    }
-  }
-
-  const nextScore = Math.min(100, result.score + 8)
 
   return {
     ...result,
-    score: nextScore,
-    grade: maxGrade(result.grade, gradeFromScore(nextScore)),
-    summaryTemplateId: 'freshness_outdated',
-    summary: verification.summary,
-    aiHookingChecklist: {
-      ...result.aiHookingChecklist,
-      normalizedScore: Math.min(100, result.aiHookingChecklist.normalizedScore + 10),
-      tags: [...new Set([...result.aiHookingChecklist.tags, '구식 정보 재탕'])].slice(0, 6),
+    summaryOverrideLocale: providerState.uiLocale,
+    summaryOverrideText: nextSummary,
+    summary: nextSummary,
+  }
+}
+
+function applyWebFreshnessNote(
+  result: AnalysisResult,
+  providerState: ProviderState,
+  note: string,
+): AnalysisResult {
+  const summary = note.trim()
+
+  if (!summary) {
+    return result
+  }
+
+  return {
+    ...result,
+    webFreshnessVerification: {
+      status: 'inconclusive',
+      messageKey: 'provider',
+      providerSummaryLocale: providerState.uiLocale,
+      providerSummaryText: summary,
+      summary,
+      checkedClaims: [],
+      references: [],
     },
-    checklist: addChecklistItem(result, {
-      id: 'web-freshness-confirmed-outdated',
-      title: '웹 검색 기준 최신성 불일치 확인',
-      category: '신뢰 위장',
-      triggered: true,
-      weight: 10,
-      severity: 'high',
-      evidence: verification.summary,
-    }),
-    signals: [...new Set([...result.signals, '웹 검색 기준 최신성 불일치 확인'])],
-    dimensionScores: {
-      ...result.dimensionScores,
-      factualityRisk: Math.min(100, result.dimensionScores.factualityRisk + 25),
-    },
-    recommendedActionIds: [
-      'freshness_outdated_verify_model_status',
-      ...result.recommendedActionIds,
-    ].slice(0, 4) as RecommendedActionId[],
-    recommendedActions: [
-      '현재 공식 문서 기준 모델명, 버전, 지원 상태가 맞는지 먼저 다시 확인하십시오.',
-      ...result.recommendedActions,
-    ].slice(0, 4),
-    webFreshnessVerification: verification,
+  }
+}
+
+function buildInconclusiveFreshness(
+  summary: string,
+  messageKey: 'provider' | 'skipped_no_provider' | 'failed',
+  providerState: ProviderState,
+): WebFreshnessVerification {
+  return {
+    status: 'inconclusive' as const,
+    messageKey,
+    providerSummaryLocale: messageKey === 'provider' ? providerState.uiLocale : undefined,
+    providerSummaryText: messageKey === 'provider' ? summary : undefined,
+    summary,
+    checkedClaims: [],
+    references: [],
   }
 }
 
@@ -202,56 +187,88 @@ export async function analyzeInput(
   let sourceText = input.rawText?.trim() ?? input.selectedText?.trim() ?? ''
   let ocrText = ''
   const providerUsage: ProviderUsage[] = []
-
-  const assistant = createExplanationAssistant(providerState, providerSecrets)
-  const configuredProviders = createConfiguredProviders(providerState, providerSecrets)
+  const selectedProvider = createSelectedProvider(providerState, providerSecrets)
+  const isImageOnlyInput = !sourceText && Boolean(input.imageDataUrl)
+  let llmAnalysis: LlmAnalysis | undefined
+  let requestedWebFreshness = false
 
   if (input.source === 'url' && input.rawText) {
     sourceText = input.rawText
   }
 
-  if (!sourceText && input.imageDataUrl) {
-    if (configuredProviders.length === 0) {
-      const supportsCodex = getCachedRuntimeCapabilities().supportsCodex
-      throw new Error(
-        supportsCodex
-          ? '이미지 분석에는 멀티모달 제공자가 필요합니다. Gemini 또는 Groq API 키를 입력하거나 Codex 연결을 준비해 주세요.'
-          : '이미지 분석에는 멀티모달 제공자가 필요합니다. Gemini 또는 Groq API 키를 입력해 주세요.',
-      )
+  const missingFreshnessNoteMessage =
+    providerState.uiLocale === 'en'
+      ? 'The selected LLM did not return a freshness note.'
+      : '선택한 LLM이 최신성 코멘트를 반환하지 않았습니다.'
+  const groqFreshnessSkippedMessage =
+    providerState.uiLocale === 'en'
+      ? 'The selected Groq path does not run web freshness verification in this single-call mode, so it was skipped.'
+      : '선택한 Groq 경로는 단일 호출 모드에서 웹 최신성 검증을 수행하지 않아 건너뛰었습니다.'
+  const unsupportedFreshnessMessage =
+    providerState.uiLocale === 'en'
+      ? 'The selected provider does not support web freshness verification, so it was skipped.'
+      : providerState.preferredProvider === 'codex'
+        ? '선택한 Codex 제공자는 웹 검색 최신성 검증을 지원하지 않아 건너뛰었습니다.'
+        : '선택한 제공자가 웹 검색 최신성 검증을 지원하지 않아 건너뛰었습니다.'
+
+  if (isImageOnlyInput) {
+    if (!selectedProvider) {
+      throw new Error(buildImageProviderRequiredMessage(providerState))
     }
 
-    const providerErrors: string[] = []
+    const useWebSearch =
+      providerState.webSearchEnabled &&
+      selectedProvider.supportsWebFreshnessCheck() &&
+      selectedProvider.kind === 'gemini'
+    requestedWebFreshness = useWebSearch
+    const durationStart = Date.now()
 
-    for (const provider of configuredProviders) {
-      try {
-        sourceText = await withTimeout(
-          provider.extractTextFromImage(input.imageDataUrl),
-          provider.kind === 'codex' ? 35_000 : 22_000,
-          `${provider.kind} 이미지 인식`,
-        )
-        ocrText = sourceText
-        providerUsage.push({
-          provider: provider.kind,
-          operations: ['assistOcr'],
-          success: true,
-        })
-        break
-      } catch (error) {
-        const message = error instanceof Error ? error.message : '이미지 인식 실패'
-        providerErrors.push(`${provider.kind}: ${message}`)
-        providerUsage.push({
-          provider: provider.kind,
-          operations: ['assistOcr'],
-          success: false,
-          error: message,
-        })
+    try {
+      const llmResult = await withTimeout(
+        selectedProvider.analyzeRisk({
+          input,
+          webSearchEnabled: useWebSearch,
+        }),
+        providerTimeoutMs(selectedProvider.kind, {
+          useWebSearch,
+          hasImage: true,
+        }),
+        `${selectedProvider.kind} 분석`,
+      )
+      const durationMs = Date.now() - durationStart
+      sourceText = llmResult.extractedText?.trim() ?? ''
+      ocrText = sourceText
+
+      if (!sourceText) {
+        throw new Error('이미지에서 텍스트를 추출하지 못했습니다.')
       }
-    }
 
-    if (!sourceText.trim()) {
-      throw new Error(
-        `이미지 인식에 실패했습니다. ${providerErrors.join(' | ')}`.trim(),
-      )
+      providerUsage.push({
+        provider: selectedProvider.kind,
+        operations: ['analyzeRisk'],
+        success: true,
+        durationMs,
+        responsePreview: responsePreview(llmResult.responseText),
+      })
+      llmAnalysis = {
+        provider: selectedProvider.kind,
+        status: 'success',
+        durationMs,
+        responseText: llmResult.responseText,
+        evidence: llmResult.evidence,
+        freshnessNote: llmResult.freshnessNote,
+      }
+    } catch (error) {
+      const durationMs = Date.now() - durationStart
+      const message = error instanceof Error ? error.message : 'LLM 이미지 분석에 실패했습니다.'
+      providerUsage.push({
+        provider: selectedProvider.kind,
+        operations: ['analyzeRisk'],
+        success: false,
+        durationMs,
+        error: message,
+      })
+      throw new Error(message)
     }
   }
 
@@ -259,97 +276,126 @@ export async function analyzeInput(
     throw new Error('분석할 텍스트를 찾지 못했습니다.')
   }
 
-  let result: AnalysisResult = analyzeText(sourceText)
+  let result = analyzeText(sourceText)
+  const wantsWebFreshness =
+    providerState.webSearchEnabled && shouldRunWebFreshnessCheck(sourceText, result)
 
-  if (providerState.webSearchEnabled && shouldRunWebFreshnessCheck(sourceText, result)) {
-    const freshnessProviders = configuredProviders.filter((provider) => provider.supportsWebFreshnessCheck())
-    const freshnessErrors: string[] = []
+  if (!llmAnalysis) {
+    if (!selectedProvider) {
+      llmAnalysis = buildSkippedLlmAnalysis(providerState)
+      providerUsage.push({
+        provider: providerState.preferredProvider,
+        operations: ['analyzeRisk'],
+        success: false,
+        durationMs: 0,
+        error: llmAnalysis.error,
+      })
+    } else {
+      const useWebSearch =
+        wantsWebFreshness &&
+        selectedProvider.supportsWebFreshnessCheck() &&
+        selectedProvider.kind === 'gemini'
+      requestedWebFreshness = useWebSearch
+      const durationStart = Date.now()
 
-    if (freshnessProviders.length === 0) {
-      result = {
-        ...result,
-        webFreshnessVerification: {
-          status: 'inconclusive',
-          messageKey: 'skipped_no_provider',
-          summary:
-            '웹 검색이 가능한 Gemini 또는 검색 지원 Groq 모델이 없어 최신성 검증을 건너뛰었습니다.',
-          checkedClaims: [],
-          references: [],
-        },
-      }
-    }
-
-    for (const freshnessProvider of freshnessProviders) {
       try {
-        const verification = await withTimeout(
-          freshnessProvider.verifyFreshness(sourceText),
-          15_000,
-          `${freshnessProvider.kind} 웹 검색 최신성 검증`,
+        const llmResult = await withTimeout(
+          selectedProvider.analyzeRisk({
+            input,
+            rawText: sourceText,
+            result,
+            webSearchEnabled: useWebSearch,
+          }),
+          providerTimeoutMs(selectedProvider.kind, {
+            useWebSearch,
+            hasImage: Boolean(input.imageDataUrl),
+          }),
+          `${selectedProvider.kind} 분석`,
         )
-        result = applyWebFreshnessVerification(result, verification)
+        const durationMs = Date.now() - durationStart
+
         providerUsage.push({
-          provider: freshnessProvider.kind,
-          operations: ['verifyFreshness'],
+          provider: selectedProvider.kind,
+          operations: ['analyzeRisk'],
           success: true,
+          durationMs,
+          responsePreview: responsePreview(llmResult.responseText),
         })
-        break
+        llmAnalysis = {
+          provider: selectedProvider.kind,
+          status: 'success',
+          durationMs,
+          responseText: llmResult.responseText,
+          evidence: llmResult.evidence,
+          freshnessNote: llmResult.freshnessNote,
+        }
+        result = applyLlmSummary(result, providerState, llmResult.summary)
       } catch (error) {
-        const message = error instanceof Error ? error.message : '최신성 검증 실패'
-        freshnessErrors.push(`${freshnessProvider.kind}: ${message}`)
+        const durationMs = Date.now() - durationStart
+        const message = error instanceof Error ? error.message : 'LLM 분석에 실패했습니다.'
+
         providerUsage.push({
-          provider: freshnessProvider.kind,
-          operations: ['verifyFreshness'],
+          provider: selectedProvider.kind,
+          operations: ['analyzeRisk'],
           success: false,
+          durationMs,
           error: message,
         })
-      }
-    }
-
-    if (!result.webFreshnessVerification && freshnessErrors.length > 0) {
-      result = {
-        ...result,
-        webFreshnessVerification: {
-          status: 'inconclusive',
-          messageKey: 'failed',
-          summary: `웹 최신성 검증을 시도했지만 실패했습니다. ${freshnessErrors[0]}`,
-          checkedClaims: [],
-          references: [],
-        },
+        llmAnalysis = {
+          provider: selectedProvider.kind,
+          status: 'failed',
+          durationMs,
+          responseText: '',
+          evidence: [],
+          error: message,
+        }
       }
     }
   }
 
-  if (providerState.remoteExplanationEnabled && assistant) {
-    try {
-      const refinedSummary = await withTimeout(
-        assistant.refineExplanation({
-          input,
-          rawText: sourceText,
-          result,
-        }),
-        10_000,
-        '설명 보조',
-      )
-
+  if (wantsWebFreshness) {
+    if (llmAnalysis?.status === 'success' && llmAnalysis.freshnessNote?.trim()) {
+      result = applyWebFreshnessNote(result, providerState, llmAnalysis.freshnessNote)
+    } else if (llmAnalysis?.status === 'success' && selectedProvider?.kind === 'groq') {
       result = {
         ...result,
-        summaryOverrideLocale: providerState.uiLocale,
-        summaryOverrideText: refinedSummary || result.summary,
-        summary: refinedSummary || result.summary,
+        webFreshnessVerification: buildInconclusiveFreshness(
+          groqFreshnessSkippedMessage,
+          'skipped_no_provider',
+          providerState,
+        ),
       }
-
-      providerUsage.push({
-        provider: assistant.kind,
-        operations: ['refineExplanation'],
-        success: true,
-      })
-    } catch (error) {
-      providerUsage.push({
-        provider: assistant.kind,
-        operations: ['refineExplanation'],
-        success: false,
-        error: error instanceof Error ? error.message : '설명 보조 실패',
-      })
+    } else if (
+      llmAnalysis?.status === 'success' &&
+      selectedProvider?.supportsWebFreshnessCheck() &&
+      requestedWebFreshness
+    ) {
+      result = {
+        ...result,
+        webFreshnessVerification: buildInconclusiveFreshness(
+          missingFreshnessNoteMessage,
+          'provider',
+          providerState,
+        ),
+      }
+    } else if (!selectedProvider || !selectedProvider.supportsWebFreshnessCheck()) {
+      result = {
+        ...result,
+        webFreshnessVerification: buildInconclusiveFreshness(
+          unsupportedFreshnessMessage,
+          'skipped_no_provider',
+          providerState,
+        ),
+      }
+    } else if (llmAnalysis?.status === 'failed') {
+      result = {
+        ...result,
+        webFreshnessVerification: buildInconclusiveFreshness(
+          `웹 최신성 검증을 시도했지만 실패했습니다. ${llmAnalysis.error ?? 'LLM 분석 실패'}`,
+          'failed',
+          providerState,
+        ),
+      }
     }
   }
 
@@ -362,6 +408,7 @@ export async function analyzeInput(
     },
     result,
     ocrText: ocrText || undefined,
+    llmAnalysis,
     providerUsage,
   }
 }

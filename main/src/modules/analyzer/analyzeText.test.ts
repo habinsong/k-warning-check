@@ -3,8 +3,8 @@ import { AI_HOOKING_CHECKLIST_DEFINITIONS } from '@/data/aiHookingChecklist'
 import { analyzeText } from '@/modules/analyzer/analyzeText'
 
 describe('analyzeText', () => {
-  it('AI 저품질 후킹글 내부 체크리스트 100개를 유지한다', () => {
-    expect(AI_HOOKING_CHECKLIST_DEFINITIONS).toHaveLength(100)
+  it('AI 저품질 후킹글 내부 체크리스트 107개를 유지한다', () => {
+    expect(AI_HOOKING_CHECKLIST_DEFINITIONS).toHaveLength(107)
 
     const categoryCounts = AI_HOOKING_CHECKLIST_DEFINITIONS.reduce<Record<string, number>>(
       (counts, definition) => ({
@@ -14,7 +14,7 @@ describe('analyzeText', () => {
       {},
     )
 
-    expect(Object.values(categoryCounts)).toEqual([10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
+    expect(Object.values(categoryCounts)).toEqual([10, 11, 11, 10, 11, 13, 10, 10, 11, 10])
   })
 
   it('외부 메신저 + 선입금 + 수익 보장을 위험 이상으로 판정한다', () => {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Settings2 } from 'lucide-react'
-import { isProviderSelectable } from '@/core/providerStateModel'
+import { isProviderSelectable, isProviderWebSearchCapable } from '@/core/providerStateModel'
 import { RecordCard } from '@/popup/components/RecordCard'
 import { ScoreGauge } from '@/popup/components/ScoreGauge'
 import { DEFAULT_PROVIDER_STATE } from '@/shared/defaults'
@@ -184,8 +184,10 @@ export function PopupApp() {
       })
       providerStateRef.current = savedState
       setProviderState(savedState)
+      return savedState
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : locale === 'en' ? 'Failed to save provider settings.' : '제공자 설정 저장에 실패했습니다.')
+      return nextState
     }
   }
 
@@ -277,13 +279,10 @@ export function PopupApp() {
       return
     }
 
-    const resolvedProvider =
-      providerStateRef.current.webSearchEnabled && nextProvider === 'codex' ? 'gemini' : nextProvider
-
     if (
       !isProviderSelectable(
         providerStateRef.current,
-        resolvedProvider,
+        nextProvider,
         runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
       )
     ) {
@@ -292,7 +291,17 @@ export function PopupApp() {
 
     await persistProviderState((current) => ({
       ...current,
-      preferredProvider: resolvedProvider,
+      preferredProvider: nextProvider,
+      webSearchEnabled:
+        current.webSearchEnabled &&
+        isProviderWebSearchCapable(
+          {
+            ...current,
+            preferredProvider: nextProvider,
+          },
+          nextProvider,
+          runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
+        ),
     }))
   }
 
@@ -334,18 +343,27 @@ export function PopupApp() {
   }
 
   async function toggleWebSearchEnabled(nextChecked: boolean) {
-    await persistProviderState((current) => ({
+    const nextState = await persistProviderState((current) => ({
       ...current,
-      webSearchEnabled: nextChecked,
-      preferredProvider:
-        nextChecked && current.preferredProvider === 'codex'
-          ? current.gemini.hasSecret && current.gemini.storageBackend
-            ? 'gemini'
-            : current.groq.hasSecret && current.groq.storageBackend
-              ? 'groq'
-              : current.preferredProvider
-          : current.preferredProvider,
+      webSearchEnabled:
+        nextChecked &&
+        isProviderWebSearchCapable(
+          current,
+          current.preferredProvider,
+          runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
+        ),
     }))
+
+    if (nextChecked && !nextState.webSearchEnabled) {
+      setStatusMessage(
+        isEnglish
+          ? 'Web freshness verification requires the selected provider to support search.'
+          : '웹 최신성 검증은 현재 선택한 제공자가 검색을 지원할 때만 사용할 수 있습니다.',
+      )
+      return
+    }
+
+    setStatusMessage('')
   }
 
   function handleDroppedImage(fileList: FileList | null) {

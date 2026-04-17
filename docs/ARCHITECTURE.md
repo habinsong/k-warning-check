@@ -54,7 +54,7 @@ K-WarningCheck는 하나의 분석 엔진을 Chrome 확장과 Tauri 데스크톱
 
 - 온보딩과 설정 UI
 - preferred provider 정규화
-- provider fallback 순서
+- 선택 provider 허용 여부
 - Codex bridge token 주입 여부
 - stale Codex 호출의 즉시 차단
 
@@ -85,8 +85,9 @@ K-WarningCheck는 하나의 분석 엔진을 Chrome 확장과 Tauri 데스크톱
 3. 규칙 매칭
 4. 체크리스트/기준점 적용
 5. 점수 계산 및 유형 분류
-6. 필요 시 provider 보조 동작
-7. 기록 저장
+6. 선택한 provider 1개에 한해 `analyzeRisk` 1회 호출
+7. `llmAnalysis`와 보강 요약 저장
+8. 기록 저장
 
 Provider 보조 동작에는 다음이 포함됩니다.
 
@@ -94,7 +95,7 @@ Provider 보조 동작에는 다음이 포함됩니다.
 - 이미지 텍스트 추출
 - 웹 최신성 검증
 
-Windows에서는 Codex가 fallback 체인에 포함되지 않습니다.
+숨은 fallback, 다중 provider 순회, 재시도 체인은 현재 분석 경로에서 사용하지 않습니다.
 
 ---
 
@@ -102,8 +103,8 @@ Windows에서는 Codex가 fallback 체인에 포함되지 않습니다.
 
 | 제공자 | 역할 | Windows |
 |---|---|---|
-| Gemini | 설명 보조, OCR 보조, 최신성 검증 | 지원 |
-| Groq | 설명 보조, OCR 보조, 최신성 검증 | 지원 |
+| Gemini | 단일 호출 설명 보조, OCR 보조, 최신성 코멘트 | 지원 |
+| Groq | 단일 호출 설명 보조, OCR 보조 | 지원 |
 | Codex | 설명 보조, OCR 보조, bridge 기반 호출 | 비노출 |
 
 Codex 설정 객체는 저장 포맷 호환성 때문에 유지하지만, Windows 런타임에서는 bridge token을 주입하지 않습니다.
@@ -114,7 +115,7 @@ Codex 설정 객체는 저장 포맷 호환성 때문에 유지하지만, Window
 
 - 기록: 플랫폼별 로컬 저장소
 - provider state: 플랫폼별 로컬 저장소
-- API 키: OS 보안 저장소
+- API 키: 저장 시 OS 보안 저장소 + 런타임용 로컬 암호화 캐시
 - Codex bridge token: 로컬 런타임 파일
 
 빌드 산출물과 개인 환경 파일은 Git에 포함하지 않습니다.

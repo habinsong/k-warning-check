@@ -37,6 +37,12 @@ const DIMENSION_RULES: Record<keyof AnalysisDimensionScores, string[]> = {
     'startup-success-fee',
     'startup-insider-judge',
     'lecture-sales-funnel',
+    'safe-trade-phishing',
+    'deepfake-voice-scam',
+    'investment-room-recruit',
+    'task-job-scam',
+    'romance-scam-pattern',
+    'account-info-phishing',
   ],
   virality: [
     'viral-scarcity',
@@ -49,6 +55,7 @@ const DIMENSION_RULES: Record<keyof AnalysisDimensionScores, string[]> = {
     'ai-device-viral-framing',
     'ai-selective-comparison',
     'ai-blog-story-hook',
+    'ai-vibe-coding-hype',
   ],
   aiSmell: [
     'ai-clickbait-fast-setup',
@@ -59,6 +66,8 @@ const DIMENSION_RULES: Record<keyof AnalysisDimensionScores, string[]> = {
     'ai-emoji-hype',
     'ai-blog-story-hook',
     'ai-local-llm-overclaim',
+    'ai-connector-style',
+    'ai-rhetorical-question',
   ],
   factualityRisk: [
     'ai-outdated-model-reference',
@@ -86,6 +95,8 @@ const DIMENSION_RULES: Record<keyof AnalysisDimensionScores, string[]> = {
     'ai-explainer-tone',
     'ai-emoji-hype',
     'ai-blog-story-hook',
+    'ai-vibe-coding-hype',
+    'ai-rhetorical-question',
   ],
 }
 
@@ -432,12 +443,16 @@ export function analyzeText(rawText: string): AnalysisResult {
     guidance: baseline.guidance,
   }))
 
-  const safeContextMatched = SAFE_CONTEXT_PATTERNS.some((pattern) =>
-    pattern.test(normalizedText),
-  )
+  const safeContextMatched = SAFE_CONTEXT_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0
+    return pattern.test(normalizedText)
+  })
   const englishSafeContextMatched =
     detectedLanguage !== 'ko' &&
-    ENGLISH_SAFE_CONTEXT_PATTERNS.some((pattern) => pattern.test(normalizedText))
+    ENGLISH_SAFE_CONTEXT_PATTERNS.some((pattern) => {
+      pattern.lastIndex = 0
+      return pattern.test(normalizedText)
+    })
   const hasSafeContext = safeContextMatched || englishSafeContextMatched
   const aiHookingChecklist = evaluateAiHookingChecklist(normalizedText, sentences, detectedLanguage)
   const baseScoreResult = calculateWarningScore(hits, combos, hasSafeContext)

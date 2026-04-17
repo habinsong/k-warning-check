@@ -83,7 +83,7 @@ export function isProviderSelectable(
   runtimeCapabilities: RuntimeCapabilities = DEFAULT_RUNTIME_CAPABILITIES,
 ) {
   if (provider === 'codex') {
-    return runtimeCapabilities.supportsCodex && !state.webSearchEnabled
+    return runtimeCapabilities.supportsCodex
   }
 
   if (provider === 'gemini') {
@@ -91,6 +91,27 @@ export function isProviderSelectable(
   }
 
   return state.groq.hasSecret && Boolean(state.groq.storageBackend)
+}
+
+export function isProviderWebSearchCapable(
+  state: ProviderState,
+  provider: ProviderState['preferredProvider'],
+  runtimeCapabilities: RuntimeCapabilities = DEFAULT_RUNTIME_CAPABILITIES,
+) {
+  if (!isProviderSelectable(state, provider, runtimeCapabilities)) {
+    return false
+  }
+
+  if (provider === 'gemini') {
+    return true
+  }
+
+  if (provider === 'groq') {
+    const model = state.groq.model.trim() || 'groq/compound'
+    return model === 'groq/compound' || model === 'groq/compound-mini' || model === 'openai/gpt-oss-120b' || model === 'openai/gpt-oss-20b'
+  }
+
+  return false
 }
 
 export function normalizePreferredProvider(state: ProviderState): ProviderState {
@@ -102,19 +123,8 @@ export function normalizePreferredProviderWithCapabilities(
   runtimeCapabilities: RuntimeCapabilities = DEFAULT_RUNTIME_CAPABILITIES,
 ): ProviderState {
   const defaultProvider = getDefaultPreferredProvider(runtimeCapabilities)
-  const hasSearchCapableProvider =
-    isProviderSelectable(state, 'gemini', runtimeCapabilities) ||
-    isProviderSelectable(state, 'groq', runtimeCapabilities)
 
   let nextState = state
-
-  if (nextState.webSearchEnabled && !hasSearchCapableProvider) {
-    nextState = {
-      ...nextState,
-      webSearchEnabled: false,
-      preferredProvider: defaultProvider,
-    }
-  }
 
   if (!runtimeCapabilities.supportsCodex && nextState.preferredProvider === 'codex') {
     const hasSelectableRemoteProvider =
@@ -130,33 +140,40 @@ export function normalizePreferredProviderWithCapabilities(
     }
   }
 
-  if (isProviderSelectable(nextState, nextState.preferredProvider, runtimeCapabilities)) {
-    return nextState
+  if (!isProviderSelectable(nextState, nextState.preferredProvider, runtimeCapabilities)) {
+    const fallbackOrder: ProviderState['preferredProvider'][] = nextState.webSearchEnabled
+      ? ['gemini', 'groq', ...(runtimeCapabilities.supportsCodex ? (['codex'] as const) : [])]
+      : [...(runtimeCapabilities.supportsCodex ? (['codex'] as const) : []), 'gemini', 'groq']
+
+    const fallbackProvider =
+      fallbackOrder.find((provider) => isProviderSelectable(nextState, provider, runtimeCapabilities)) ?? defaultProvider
+
+    nextState = {
+      ...nextState,
+      preferredProvider: fallbackProvider,
+      remoteExplanationEnabled:
+        !runtimeCapabilities.supportsCodex &&
+        !isProviderSelectable(nextState, 'gemini', runtimeCapabilities) &&
+        !isProviderSelectable(nextState, 'groq', runtimeCapabilities)
+          ? false
+          : nextState.remoteExplanationEnabled,
+      remoteOcrEnabled:
+        !runtimeCapabilities.supportsCodex &&
+        !isProviderSelectable(nextState, 'gemini', runtimeCapabilities) &&
+        !isProviderSelectable(nextState, 'groq', runtimeCapabilities)
+          ? false
+          : nextState.remoteOcrEnabled,
+    }
   }
 
-  const fallbackOrder: ProviderState['preferredProvider'][] = nextState.webSearchEnabled
-    ? ['gemini', 'groq', ...(runtimeCapabilities.supportsCodex ? (['codex'] as const) : [])]
-    : [...(runtimeCapabilities.supportsCodex ? (['codex'] as const) : []), 'gemini', 'groq']
-
-  const fallbackProvider =
-    fallbackOrder.find((provider) => isProviderSelectable(nextState, provider, runtimeCapabilities)) ?? defaultProvider
-
-  return {
-    ...nextState,
-    preferredProvider: fallbackProvider,
-    remoteExplanationEnabled:
-      !runtimeCapabilities.supportsCodex &&
-      !isProviderSelectable(nextState, 'gemini', runtimeCapabilities) &&
-      !isProviderSelectable(nextState, 'groq', runtimeCapabilities)
-        ? false
-        : nextState.remoteExplanationEnabled,
-    remoteOcrEnabled:
-      !runtimeCapabilities.supportsCodex &&
-      !isProviderSelectable(nextState, 'gemini', runtimeCapabilities) &&
-      !isProviderSelectable(nextState, 'groq', runtimeCapabilities)
-        ? false
-        : nextState.remoteOcrEnabled,
+  if (!isProviderWebSearchCapable(nextState, nextState.preferredProvider, runtimeCapabilities) && nextState.webSearchEnabled) {
+    return {
+      ...nextState,
+      webSearchEnabled: false,
+    }
   }
+
+  return nextState
 }
 
 export function sanitizePersistedState(state: ProviderState): ProviderState {

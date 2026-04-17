@@ -1,8 +1,8 @@
 export const GEMINI_MODEL_OPTIONS = [
   {
-    id: 'gemini-3.1-pro-preview',
-    label: 'Gemini 3.1 Pro Preview',
-    description: '정확도 우선',
+    id: 'gemini-3.1-flash-lite-preview',
+    label: 'Gemini 3.1 Flash-Lite Preview',
+    description: '기본 · 가장 빠름',
   },
   {
     id: 'gemini-3-flash-preview',
@@ -10,9 +10,9 @@ export const GEMINI_MODEL_OPTIONS = [
     description: '속도 우선',
   },
   {
-    id: 'gemini-3.1-flash-lite-preview',
-    label: 'Gemini 3.1 Flash-Lite Preview',
-    description: '비용·처리량 우선',
+    id: 'gemini-3.1-pro-preview',
+    label: 'Gemini 3.1 Pro Preview',
+    description: '정확도 우선',
   },
 ] as const
 
@@ -52,14 +52,14 @@ export const CODEX_REASONING_OPTIONS = [
 
 export const GROQ_MODEL_OPTIONS = [
   {
+    id: 'groq/compound-mini',
+    label: 'Compound Mini',
+    description: '기본 · 빠른 단일 호출',
+  },
+  {
     id: 'groq/compound',
     label: 'Compound',
     description: '권장 · 웹검색과 내장 도구 전체',
-  },
-  {
-    id: 'groq/compound-mini',
-    label: 'Compound Mini',
-    description: '권장 · 빠른 웹검색과 내장 도구',
   },
   {
     id: 'openai/gpt-oss-120b',

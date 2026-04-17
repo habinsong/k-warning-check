@@ -59,15 +59,18 @@ export function createConfiguredProviders(state: ProviderState, secrets: Provide
     })
 }
 
-export function createExplanationAssistant(
+export function createSelectedProvider(
   state: ProviderState,
   secrets: ProviderSecrets,
 ): AIProviderAdapter | null {
-  if (!state.autoUseConfiguredProviders) {
+  const runtimeCapabilities = getCachedRuntimeCapabilities()
+  const provider = providerFor(state.preferredProvider, state, secrets, runtimeCapabilities)
+
+  if (!provider?.isConfigured()) {
     return null
   }
 
-  return createConfiguredProviders(state, secrets)[0] ?? null
+  return provider
 }
 
 export function createCodexProvider(state: ProviderState, secrets: ProviderSecrets) {

@@ -53,7 +53,8 @@ main/src/desktop/renderer/
 
 - 기록 CRUD
 - provider state 정규화
-- OS 보안 저장소 접근
+- API 키 저장 시 OS 보안 저장소 접근
+- 실행 중 API 키용 로컬 암호화 캐시 읽기
 - Gemini / Groq bridge 호출
 - 시스템 기능
 - 화면 캡처
@@ -109,6 +110,32 @@ macOS 데스크톱에서는 기존 Codex 흐름을 유지합니다.
 
 ---
 
+## LLM 분석 표시
+
+데스크톱의 기록 카드와 메인 결과 카드에는 `LLM 분석` 섹션이 함께 표시됩니다.
+
+- 호출된 provider 이름
+- 소요 시간
+- 실제 응답 전문
+- 근거 문구
+- 최신성 코멘트 또는 실패 이유
+
+점수와 유형은 로컬 엔진 기준을 유지하고, LLM은 설명만 보강합니다.
+
+---
+
+## 보안 저장 동작
+
+Gemini와 Groq 키는 저장 시에만 OS 보안 저장소를 사용합니다.
+
+- 저장 시: Keychain 또는 Credential Locker + 로컬 암호화 캐시 갱신
+- 실행 시: 로컬 암호화 캐시만 읽음
+- 캐시 없음: 비밀번호 창 대신 `다시 저장 필요` 오류
+
+즉, 정상 저장 이후 분석을 반복해도 암호 창이 계속 뜨지 않아야 합니다.
+
+---
+
 ## 빌드
 
 ```bash
@@ -130,3 +157,5 @@ npm run build:windows
 - Windows 빌드에서 Codex 관련 설정이 전혀 렌더링되지 않는지
 - macOS 빌드에서 Codex 로그인과 bridge 흐름이 유지되는지
 - provider state가 Windows에서 `gemini -> groq` 우선으로 정규화되는지
+- Gemini/Groq 저장 후 분석 반복 시 OS 암호 창이 다시 뜨지 않는지
+- 기록 카드에서 `LLM 분석` 응답 전문이 보이는지

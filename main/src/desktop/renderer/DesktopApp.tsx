@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ExternalLink, History, ImagePlus, Link2, Search, Settings2 } from 'lucide-react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
-import { isProviderSelectable } from '@/core/providerStateModel'
+import { isProviderSelectable, isProviderWebSearchCapable } from '@/core/providerStateModel'
 import { desktopAnalysisService, desktopProviderStateRepository } from '@/desktop/renderer/services'
 import { tauriShortcutApi } from '@/desktop/renderer/tauri-bridge'
 import {
@@ -122,27 +122,6 @@ function providerModelOptions(preferredProvider: ProviderState['preferredProvide
   }
 
   return CODEX_MODEL_OPTIONS
-}
-
-function isSearchCapableGroqModel(model: string) {
-  return (
-    model === 'groq/compound'
-    || model === 'groq/compound-mini'
-    || model === 'openai/gpt-oss-120b'
-    || model === 'openai/gpt-oss-20b'
-  )
-}
-
-function hasWebFreshnessCapableProvider(state: ProviderState) {
-  if (state.gemini.hasSecret && Boolean(state.gemini.storageBackend)) {
-    return true
-  }
-
-  return (
-    state.groq.hasSecret
-    && Boolean(state.groq.storageBackend)
-    && isSearchCapableGroqModel(state.groq.model.trim() || 'groq/compound')
-  )
 }
 
 function toUiErrorMessage(error: unknown, englishMessage: string, koreanMessage: string) {
@@ -750,19 +729,10 @@ export function DesktopApp() {
       return
     }
 
-    const resolvedProvider =
-      providerStateRef.current.webSearchEnabled && nextProvider === 'codex'
-        ? providerStateRef.current.gemini.hasSecret && providerStateRef.current.gemini.storageBackend
-          ? 'gemini'
-          : providerStateRef.current.groq.hasSecret && providerStateRef.current.groq.storageBackend
-            ? 'groq'
-            : nextProvider
-        : nextProvider
-
     if (
       !isProviderSelectable(
         providerStateRef.current,
-        resolvedProvider,
+        nextProvider,
         runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
       )
     ) {
@@ -771,7 +741,17 @@ export function DesktopApp() {
 
     await persistProviderState({
       ...providerStateRef.current,
-      preferredProvider: resolvedProvider,
+      preferredProvider: nextProvider,
+      webSearchEnabled:
+        providerStateRef.current.webSearchEnabled &&
+        isProviderWebSearchCapable(
+          {
+            ...providerStateRef.current,
+            preferredProvider: nextProvider,
+          },
+          nextProvider,
+          runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
+        ),
     })
   }
 
@@ -809,29 +789,23 @@ export function DesktopApp() {
 
   async function toggleWebSearchEnabled(nextChecked: boolean) {
     const currentState = providerStateRef.current
-    const hasCapableProvider = hasWebFreshnessCapableProvider(currentState)
-    const preferredProvider =
-      nextChecked && currentState.preferredProvider === 'codex'
-        ? currentState.gemini.hasSecret && currentState.gemini.storageBackend
-          ? 'gemini'
-          : currentState.groq.hasSecret
-              && currentState.groq.storageBackend
-              && isSearchCapableGroqModel(currentState.groq.model.trim() || 'groq/compound')
-            ? 'groq'
-            : currentState.preferredProvider
-        : currentState.preferredProvider
 
     const savedState = await persistProviderState({
       ...currentState,
-      webSearchEnabled: nextChecked && hasCapableProvider,
-      preferredProvider,
+      webSearchEnabled:
+        nextChecked &&
+        isProviderWebSearchCapable(
+          currentState,
+          currentState.preferredProvider,
+          runtimeCapabilities ?? { os: 'unknown', supportsCodex: false },
+        ),
     })
 
     if (nextChecked && !savedState.webSearchEnabled) {
       setStatusMessage(
         isEnglish
-          ? 'Web freshness verification requires Gemini or a supported Groq web-search model.'
-          : '웹 검색 기반 최신성 검증을 켜려면 Gemini 또는 검색 지원 Groq 모델이 필요합니다.',
+          ? 'Web freshness verification requires the selected provider to support search.'
+          : '웹 최신성 검증은 현재 선택한 제공자가 검색을 지원할 때만 사용할 수 있습니다.',
       )
       return
     }

@@ -81,6 +81,7 @@ main/src/
 - 텍스트, URL, 이미지 입력
 - 최근 분석 결과와 짧은 기록 노출
 - provider와 모델 선택
+- 저장된 결과의 `LLM 분석` 섹션 확인
 
 ### options
 
@@ -88,17 +89,20 @@ main/src/
 - API 키 저장
 - 모델·테마·기록 관리
 - 비윈도우 환경에서만 Codex 설정 탭 노출
+- 저장된 기록에서 provider별 응답 전문 재확인
 
 ### background
 
 - 모든 런타임 메시지 처리
 - 분석 서비스 오케스트레이션
 - 로컬 저장소와 보안 저장소 연동
+- 선택한 provider 1개만 `analyzeRisk` 1회 호출
 - Windows에서 Codex 메시지 즉시 차단
 
 ### native host
 
 - OS 보안 저장소 접근
+- 로컬 암호화 캐시 갱신 및 조회
 - 작업 디렉토리 및 로컬 host 정보 제공
 - 비윈도우 환경에서만 Codex 관련 메시지 처리
 
@@ -127,6 +131,7 @@ npm run native:install
 이 설치는 Chrome 확장의 로컬 host 연동을 준비합니다.
 
 - 공통 용도: OS 보안 저장소 연동
+- 공통 용도: 런타임 암호화 캐시 유지
 - 비윈도우 Chrome 추가 용도: Codex 관련 bridge 흐름
 
 사용자 노출 문구에서는 Codex 전용 호스트 대신 일반 로컬 호스트로 설명합니다.
@@ -164,4 +169,6 @@ npm run build:extension
 - Windows Chrome에서 Codex UI가 보이지 않는지
 - popup과 options의 provider 셀렉트에 Codex가 없는지
 - `npm run native:install` 후 secure store 연동이 유지되는지
+- 분석 1회당 선택한 provider만 1회 호출되는지
+- 기록 카드에서 `LLM 분석` 응답과 근거가 보이는지
 - 비윈도우 Chrome에서 기존 Codex 흐름이 유지되는지

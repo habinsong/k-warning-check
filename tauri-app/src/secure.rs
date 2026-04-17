@@ -308,7 +308,7 @@ async fn get_provider_secure_status(
 
     Ok(SecureStoreProviderStatus {
         provider: provider.to_string(),
-        has_secret: !cached.is_empty() || metadata.is_some(),
+        has_secret: !cached.is_empty(),
         storage_backend: Some(backend),
         expires_at: metadata.as_ref().and_then(|m| m.expires_at),
         last_validation_at: metadata.as_ref().and_then(|m| m.last_validation_at),
@@ -412,6 +412,7 @@ pub async fn validate_secure_store_secret(
         return Err("저장된 API 키가 없습니다.".into());
     }
 
+    let _ = get_secure_store_secret(provider).await?;
     let next = update_last_validation_at(provider).await?;
     Ok(SecureStoreProviderStatus {
         last_validation_at: next

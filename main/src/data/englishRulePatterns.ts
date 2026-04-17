@@ -239,6 +239,64 @@ export const ENGLISH_RULE_PATTERNS: Record<string, RegExp[]> = {
     /\bstartup grant workshop\b/iu,
     /\bjoin the open chat after the session\b/iu,
   ],
+  'ai-vibe-coding-hype': [
+    /\bvibe cod(?:e|ing)\b.*\b(?:revolution|done|ship|launch)\b/iu,
+    /\bprompt.{0,15}(?:\$\d+|revenue|income|money)\b/iu,
+    /\bno.?code\b.*\b(?:saas|mvp|startup|app)\b/iu,
+    /\bwithout coding\b.*\b(?:launch|ship|build|deploy)\b/iu,
+  ],
+  'ai-connector-style': [
+    /\b(?:moreover|furthermore|additionally)\b.{0,60}\b(?:moreover|furthermore|additionally)\b/iu,
+    /\b(?:it is worth noting|notably|interestingly)\b.{0,60}\b(?:it is worth noting|notably|interestingly)\b/iu,
+  ],
+  'ai-rhetorical-question': [
+    /\band the best part\?\b/iu,
+    /\bsounds too good to be true\?\b/iu,
+    /\bwhat if i told you\b/iu,
+    /\bare you ready\?\b/iu,
+    /\bwant to know the secret\?\b/iu,
+  ],
+  'safe-trade-phishing': [
+    /\bsecure payment\b.*\blink\b/iu,
+    /\bescrow\b.*\b(?:verify|confirm|deposit)\b/iu,
+    /\bpaypal\b.*\b(?:verify|confirm)\b.*\blink\b/iu,
+    /\bsafe transaction\b.*\b(?:link|click)\b/iu,
+  ],
+  'deepfake-voice-scam': [
+    /\bdeepfake\b/iu,
+    /\bai.?(?:voice|audio)\b.*\b(?:clone|synth)/iu,
+    /\bvoice\b.*\b(?:clone|cloning|synthesis)\b/iu,
+  ],
+  'investment-room-recruit': [
+    /\b(?:investment|trading|vip)\b.*\b(?:group|channel|room)\b.*\b(?:join|recruit|invite)\b/iu,
+    /\bprofit\b.*\b(?:screenshot|proof|verified)\b/iu,
+    /\b(?:crypto|stock|forex)\b.*\b(?:signal|alert|tip)\b/iu,
+  ],
+  'task-job-scam': [
+    /\b(?:task|mission|review)\b.*\b(?:complete|finish)\b.*\b(?:earn|paid|reward)\b/iu,
+    /\b(?:like|subscribe|follow|review)\b.*\b(?:job|gig|income|earn)\b/iu,
+    /\b(?:remote|phone)\b.*\b(?:job|work)\b.*\b(?:\$\d+|per day|per hour)\b/iu,
+  ],
+  'romance-scam-pattern': [
+    /\b(?:military|soldier|doctor|engineer)\b.*\b(?:overseas|deployed|stationed)\b.*\b(?:send|transfer|money)\b/iu,
+    /\b(?:only you|just for you|special)\b.*\b(?:invest|opportunity|info)\b/iu,
+    /\b(?:love|relationship)\b.*\b(?:crypto|invest|transfer|send money)\b/iu,
+  ],
+  'account-info-phishing': [
+    /\baccount\b.*\b(?:status|security)\b.*\b(?:check|verify|update)\b/iu,
+    /\b(?:restricted|suspended)\b.*\b(?:restore|unlock)\b.*\b(?:verify|confirm)\b/iu,
+    /\byour (?:service|account)\b.*\b(?:requires?|needs?)\b.*\b(?:verification|confirmation)\b/iu,
+  ],
+  'ai-slop-style': [
+    /\bdelve\b/iu,
+    /\bin today's (?:fast-paced|digital|competitive|evolving)\b/iu,
+    /\bunlock the (?:power|potential|secret)\b/iu,
+    /\bgame.?changer\b/iu,
+    /\bsupercharge your\b/iu,
+    /\bleverage\b.*\b(?:power|potential|capabilities)\b/iu,
+    /\bseamless(?:ly)?\b.*\b(?:integrat|connect|blend)/iu,
+    /\bimagine a world where\b/iu,
+  ],
 }
 
 export const ENGLISH_SAFE_CONTEXT_PATTERNS = [
